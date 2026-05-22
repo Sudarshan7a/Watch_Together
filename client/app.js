@@ -387,6 +387,31 @@ function toggleViewerAudio(button) {
 }
 
 // ─── Chat messages — Discord-style grouped ───────────────────
+function syncFullscreenButtons() {
+  const el = document.fullscreenElement;
+  document.querySelectorAll('[data-action="toggle-fullscreen"]').forEach((btn) => {
+    const targetSel = btn.getAttribute("data-fullscreen-target") || "";
+    const target = targetSel ? document.querySelector(targetSel) : null;
+    const active = !!(el && target && (el === target));
+    btn.setAttribute("aria-pressed", String(active));
+    btn.querySelector(".icon-fs-enter")?.classList.toggle("hidden", active);
+    btn.querySelector(".icon-fs-exit")?.classList.toggle("hidden", !active);
+  });
+}
+
+async function toggleFullscreen(button) {
+  const targetSel = button?.getAttribute("data-fullscreen-target") || "";
+  const target = targetSel ? document.querySelector(targetSel) : null;
+  if (!target) return;
+
+  if (document.fullscreenElement) {
+    await document.exitFullscreen?.();
+  } else {
+    await target.requestFullscreen?.();
+  }
+  syncFullscreenButtons();
+}
+
 const messageTemplate = document.getElementById("messageTemplate");
 
 // Per-feed last sender tracking so host + viewer feeds are independent
@@ -509,6 +534,10 @@ document.addEventListener("click", async (e) => {
       toggleViewerAudio(button);
       break;
 
+    case "toggle-fullscreen":
+      toggleFullscreen(button);
+      break;
+
     case "go-home":
       cleanupRoom();
       setScreen("landing");
@@ -548,6 +577,7 @@ roomCodeInput?.addEventListener("input", () => {
 
 // ─── Hash routing ─────────────────────────────────────────────
 window.addEventListener("hashchange", () => setScreen(getActiveScreen()));
+document.addEventListener("fullscreenchange", syncFullscreenButtons);
 
 // ─── Init ─────────────────────────────────────────────────────
 const savedName = window.localStorage?.getItem("watchtogether-name");
@@ -558,4 +588,5 @@ if (savedName) {
 
 syncRoomCode(randomRoomCode());
 syncMicButtonUI(document.querySelector('[data-action="toggle-mic"]'));
+syncFullscreenButtons();
 setScreen(getActiveScreen());

@@ -187,6 +187,14 @@
               <div class="room-top-actions">
                 <span class="top-status" id="viewerCountChip">0 watching</span>
                 <span class="avatar-bubble user-avatar" id="userAvatarHost">?</span>
+                <button class="icon-button room-fullscreen" type="button" data-action="toggle-fullscreen" data-fullscreen-target="#hostStage" aria-pressed="false" title="Fullscreen">
+                  <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-fs-enter">
+                    <path d="M9 3H5a2 2 0 0 0-2 2v4M15 3h4a2 2 0 0 1 2 2v4M9 21H5a2 2 0 0 1-2-2v-4M15 21h4a2 2 0 0 0 2-2v-4"/>
+                  </svg>
+                  <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-fs-exit hidden">
+                    <path d="M9 9H5V5M15 9h4V5M9 15H5v4M15 15h4v4"/>
+                  </svg>
+                </button>
                 <button class="ghost-button danger-ghost" type="button" data-action="end-room">End Room</button>
               </div>
             </header>
@@ -257,6 +265,14 @@
               <div class="room-top-actions">
                 <span class="top-status">Watching live</span>
                 <span class="avatar-bubble alt user-avatar" id="userAvatarViewer">?</span>
+                <button class="icon-button room-fullscreen" type="button" data-action="toggle-fullscreen" data-fullscreen-target=".viewer-stage" aria-pressed="false" title="Fullscreen">
+                  <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-fs-enter">
+                    <path d="M9 3H5a2 2 0 0 0-2 2v4M15 3h4a2 2 0 0 1 2 2v4M9 21H5a2 2 0 0 1-2-2v-4M15 21h4a2 2 0 0 0 2-2v-4"/>
+                  </svg>
+                  <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-fs-exit hidden">
+                    <path d="M9 9H5V5M15 9h4V5M9 15H5v4M15 15h4v4"/>
+                  </svg>
+                </button>
                 <button class="ghost-button danger-ghost" type="button" data-action="leave-room">Leave</button>
               </div>
             </header>
