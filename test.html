@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Socket Test</title>
+  </head>
+  <body>
+    <h2>Check the browser console (F12)</h2>
+
+    <script>
+      (function () {
+        function startTest() {
+          const socket = io("http://localhost:3000", {
+            transports: ["websocket"],
+          });
+
+          socket.on("connect", () => {
+            console.log("✅ Connected to server! ID:", socket.id);
+
+            socket.emit("join-room", {
+              roomCode: "TEST-1234",
+              role: "host",
+            });
+          });
+
+          socket.on("room-users", (data) => {
+            console.log("👥 Users already in room:", data.users);
+          });
+
+          socket.on("user-joined", (data) => {
+            console.log("🙋 New user joined:", data);
+          });
+
+          socket.on("room-full", () => {
+            console.log("🚫 Room is full!");
+          });
+        }
+
+        function loadSocketClient(src, onSuccess, onFailure) {
+          const script = document.createElement("script");
+          script.src = src;
+          script.onload = onSuccess;
+          script.onerror = onFailure;
+          document.head.appendChild(script);
+        }
+
+        loadSocketClient(
+          "/socket.io/socket.io.js",
+          startTest,
+          function () {
+            loadSocketClient(
+              "http://localhost:3000/socket.io/socket.io.js",
+              startTest,
+              startTest,
+            );
+          },
+        );
+      })();
+    </script>
+  </body>
+</html>
