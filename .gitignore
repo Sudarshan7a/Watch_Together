@@ -1,0 +1,35 @@
+# Node modules
+node_modules/
+server/node_modules/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Build / output
+dist/
+build/
+coverage/
+
+# OS / Editor
+.DS_Store
+.vscode/
+.idea/
+
+# Packages
+*.tgz
+
+# Misc
+*.local
+
+#Design
+*.sketch
+*.figma
+design/
