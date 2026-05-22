@@ -41,6 +41,13 @@ let micStream   = null;
 const peerConnections = {};
 const dataChannels    = {};
 
+function syncMicButtonUI(button) {
+  if (!button) return;
+  button.setAttribute("aria-pressed", String(state.micMuted));
+  button.querySelector(".icon-mic-on")?.classList.toggle("hidden", state.micMuted);
+  button.querySelector(".icon-mic-off")?.classList.toggle("hidden", !state.micMuted);
+}
+
 // ─── Room ID generation ───────────────────────────────────────
 const ADJECTIVES = [
   "COZY","WARM","CALM","SOFT","DARK","BOLD","COOL","DEEP",
@@ -365,9 +372,7 @@ async function toggleMic(button) {
     }
   }
   if (micStream) micStream.getAudioTracks().forEach((t) => { t.enabled = !state.micMuted; });
-  button.setAttribute("aria-pressed", String(state.micMuted));
-  button.querySelector(".icon-mic-on")?.classList.toggle("hidden", state.micMuted);
-  button.querySelector(".icon-mic-off")?.classList.toggle("hidden", !state.micMuted);
+  syncMicButtonUI(button);
 }
 
 // ─── Viewer audio ─────────────────────────────────────────────
@@ -552,4 +557,5 @@ if (savedName) {
 }
 
 syncRoomCode(randomRoomCode());
+syncMicButtonUI(document.querySelector('[data-action="toggle-mic"]'));
 setScreen(getActiveScreen());
