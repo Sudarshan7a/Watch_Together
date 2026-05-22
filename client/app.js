@@ -412,6 +412,19 @@ async function toggleFullscreen(button) {
   syncFullscreenButtons();
 }
 
+function showFsMinimize(stageEl) {
+  if (!stageEl) return;
+  if (!document.fullscreenElement) return;
+  if (document.fullscreenElement !== stageEl) return;
+
+  const btn = stageEl.querySelector(".fs-minimize");
+  if (!btn) return;
+
+  btn.classList.remove("hidden");
+  clearTimeout(btn._hideTimer);
+  btn._hideTimer = setTimeout(() => btn.classList.add("hidden"), 1800);
+}
+
 const messageTemplate = document.getElementById("messageTemplate");
 
 // Per-feed last sender tracking so host + viewer feeds are independent
@@ -538,11 +551,24 @@ document.addEventListener("click", async (e) => {
       toggleFullscreen(button);
       break;
 
+    case "exit-fullscreen":
+      await document.exitFullscreen?.();
+      syncFullscreenButtons();
+      document.querySelectorAll(".fs-minimize").forEach((b) => b.classList.add("hidden"));
+      break;
+
     case "go-home":
       cleanupRoom();
       setScreen("landing");
       break;
   }
+});
+
+document.querySelectorAll(".video-stage").forEach((stage) => {
+  stage.addEventListener("click", () => showFsMinimize(stage));
+  stage.querySelectorAll(".fs-minimize").forEach((btn) => {
+    btn.addEventListener("click", (e) => e.stopPropagation());
+  });
 });
 
 // ─── Chat form submit ─────────────────────────────────────────
