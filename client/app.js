@@ -50,6 +50,7 @@ if (!socket) {
 // ─── State ────────────────────────────────────────────────────
 const state = {
   roomCode: "",
+  micMuted: true, // mic off by default
   viewerAudioMuted: false,
   viewerVolume: 1,
   sharing: false,
@@ -63,6 +64,12 @@ const state = {
 };
 
 let localStream = null;
+let micStream = null;
+let micAudioContext = null;
+let micAnalyser = null;
+let micSourceNode = null;
+let micMonitorFrame = null;
+let micMonitorToken = 0;
 const peerConnections = {};
 const dataChannels = {};
 const negotiationLocks = {}; // prevents overlapping offer/answer exchanges per peer
@@ -226,7 +233,101 @@ function setViewerWaitingForHost(isWaiting) {
   }
 }
 
-// ─── (mic/audio removed — screen share + chat only) ──────────
+function syncMicButtonUI() {
+  Array.from(document.querySelectorAll('[data-action="toggle-mic"]')).forEach(
+    (btn) => {
+      btn.setAttribute("aria-pressed", String(!state.micMuted));
+      btn
+        .querySelector(".icon-mic-on")
+        ?.classList.toggle("hidden", state.micMuted);
+      btn
+        .querySelector(".icon-mic-off")
+        ?.classList.toggle("hidden", !state.micMuted);
+      btn.classList.toggle("mic-active", !state.micMuted);
+      if (state.micMuted) btn.classList.remove("mic-speaking");
+    },
+  );
+}
+
+function setMicSpeakingUI(isSpeaking) {
+  document.querySelectorAll('[data-action="toggle-mic"]').forEach((btn) => {
+    btn.classList.toggle("mic-speaking", !state.micMuted && isSpeaking);
+  });
+}
+
+function stopMicMonitor() {
+  micMonitorToken += 1;
+  if (micMonitorFrame) cancelAnimationFrame(micMonitorFrame);
+  micMonitorFrame = null;
+  setMicSpeakingUI(false);
+
+  try {
+    micSourceNode?.disconnect();
+  } catch (err) {
+    /* ignore */
+  }
+  try {
+    micAnalyser?.disconnect();
+  } catch (err) {
+    /* ignore */
+  }
+  micSourceNode = null;
+  micAnalyser = null;
+
+  if (micAudioContext && micAudioContext.state !== "closed") {
+    micAudioContext.close().catch(() => {});
+  }
+  micAudioContext = null;
+}
+
+function readMicLevel(token) {
+  if (token !== micMonitorToken) return;
+  if (
+    !micAnalyser ||
+    state.micMuted ||
+    !micStream?.getAudioTracks().some((track) => track.enabled)
+  ) {
+    setMicSpeakingUI(false);
+    micMonitorFrame = requestAnimationFrame(() => readMicLevel(token));
+    return;
+  }
+
+  const data = new Uint8Array(micAnalyser.fftSize);
+  micAnalyser.getByteTimeDomainData(data);
+  let sum = 0;
+  for (let index = 0; index < data.length; index += 1) {
+    const sample = (data[index] - 128) / 128;
+    sum += sample * sample;
+  }
+
+  const rms = Math.sqrt(sum / data.length);
+  setMicSpeakingUI(rms > 0.03);
+  micMonitorFrame = requestAnimationFrame(() => readMicLevel(token));
+}
+
+async function startMicMonitor() {
+  stopMicMonitor();
+  if (!micStream) return;
+
+  const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextCtor) return;
+
+  micAudioContext = new AudioContextCtor();
+  if (micAudioContext.state === "suspended") {
+    try {
+      await micAudioContext.resume();
+    } catch (err) {
+      /* ignore */
+    }
+  }
+
+  const token = ++micMonitorToken;
+  micSourceNode = micAudioContext.createMediaStreamSource(micStream);
+  micAnalyser = micAudioContext.createAnalyser();
+  micAnalyser.fftSize = 1024;
+  micSourceNode.connect(micAnalyser);
+  readMicLevel(token);
+}
 
 // ─── Room ID generation ───────────────────────────────────────
 const ADJECTIVES = [
@@ -585,8 +686,35 @@ function createPeerConnection(userId, isInitiator) {
   // connection gets the live stream immediately instead of seeing nothing.
   if (localStream && state.role === "host")
     localStream.getTracks().forEach((t) => pc.addTrack(t, localStream));
+  if (micStream)
+    micStream.getTracks().forEach((t) => pc.addTrack(t, micStream));
 
   pc.ontrack = ({ track, streams }) => {
+    if (track.kind === "audio") {
+      // Each audio track gets its own element keyed by track.id.
+      // This lets screen-capture audio and mic audio coexist without
+      // clobbering each other (the old code used a single element per peer).
+      //
+      // Skip tracks that are already part of the video stream — viewerVideo
+      // will play them automatically, so a separate audio element would echo.
+      const isScreenAudio =
+        streams[0] && streams[0].getVideoTracks().length > 0;
+      if (!isScreenAudio) {
+        const elId = "audio-" + userId + "-" + track.id;
+        let el = document.getElementById(elId);
+        if (!el) {
+          el = document.createElement("audio");
+          el.id = elId;
+          el.autoplay = true;
+          document.body.appendChild(el);
+          // Clean up when the track ends (e.g. host stops mic)
+          track.onended = () => el.remove();
+        }
+        el.muted = state.viewerAudioMuted;
+        el.volume = state.viewerVolume; // Apply current volume setting
+        el.srcObject = new MediaStream([track]);
+      }
+    }
     // Only viewers display incoming video (screen share from host).
     // Audio is handled by the video element itself (screen capture includes it).
     if (track.kind === "video" && state.role === "viewer" && viewerVideo) {
@@ -690,8 +818,12 @@ function resetViewerStage() {
 function cleanupRoom() {
   localStream?.getTracks().forEach((t) => t.stop());
   localStream = null;
+  micStream?.getTracks().forEach((t) => t.stop());
+  micStream = null;
+  stopMicMonitor();
 
   Object.keys(peerConnections).forEach((id) => destroyPeerConnection(id));
+  document.querySelectorAll('audio[id^="audio-"]').forEach((el) => el.remove());
 
   if (hostVideo) {
     hostVideo.srcObject = null;
@@ -709,7 +841,9 @@ function cleanupRoom() {
   if (stopSharingBtn) stopSharingBtn.classList.add("hidden");
 
   state.sharing = false;
+  state.micMuted = true;  // mic starts muted — match the initial state
   state.viewerAudioMuted = false;
+  syncMicButtonUI();       // reset mic button icon/label after leaving room
 }
 
 // ─── Screen sharing ───────────────────────────────────────────
@@ -759,6 +893,41 @@ function toggleHostShare() {
       })
       .catch((err) => console.error("Screen share failed:", err));
   }
+}
+
+async function toggleMic(button) {
+  const wasMuted = state.micMuted;
+  state.micMuted = !wasMuted;
+
+  // First-time mic enable: request permission and add tracks to all peers
+  if (!state.micMuted && !micStream) {
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      Object.values(peerConnections).forEach((pc) => {
+        micStream.getTracks().forEach((t) => pc.addTrack(t, micStream));
+      });
+    } catch (err) {
+      console.error("Mic failed:", err);
+      // Permission denied — revert the toggle so UI stays consistent
+      state.micMuted = true;
+      syncMicButtonUI();
+      return;
+    }
+  }
+
+  // Enable/disable the track — applies whether mic was just acquired or already existed
+  if (micStream) {
+    micStream.getAudioTracks().forEach((t) => {
+      t.enabled = !state.micMuted;
+    });
+  }
+
+  if (state.micMuted) {
+    stopMicMonitor();
+  } else if (micStream) {
+    await startMicMonitor();
+  }
+  syncMicButtonUI();
 }
 
 
@@ -1118,7 +1287,9 @@ document.addEventListener("click", async (e) => {
       if (state.sharing) toggleHostShare();
       break;
 
-
+    case "toggle-mic":
+      toggleMic(button);
+      break;
 
     case "end-room":
       if (socket) socket.emit("end-room");
@@ -1242,7 +1413,7 @@ if (savedRoomSession) {
   syncRoomCode(randomRoomCode());
 }
 
-
+syncMicButtonUI();
 if (qualityLabel) qualityLabel.textContent = `Quality: ${state.quality.label}`;
 syncFullscreenButtons();
 if (!restoreSavedRoomIfNeeded()) {
