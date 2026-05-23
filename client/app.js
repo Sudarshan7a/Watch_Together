@@ -52,7 +52,7 @@ const state = {
   role: "",
   memberId: "",
   joinedRoom: false,
-  quality: { label: "Source", width: 0, height: 0, fps: 0 },
+  quality: { label: "Auto", width: 0, height: 0, fps: 0 },
 };
 
 let localStream = null;
@@ -797,7 +797,7 @@ function toggleHostShare() {
     if (hostPlaceholder) hostPlaceholder.style.display = "";
     if (shareScreenBtn) shareScreenBtn.classList.remove("hidden");
     if (stopSharingBtn) stopSharingBtn.classList.add("hidden");
-    if (qualityLabel) qualityLabel.textContent = state.quality.label;
+    if (qualityLabel) qualityLabel.textContent = `Quality: ${state.quality.label}`;
   } else {
     navigator.mediaDevices
       .getDisplayMedia({
@@ -820,11 +820,9 @@ function toggleHostShare() {
           stream.getTracks().forEach((t) => pc.addTrack(t, stream));
         });
 
-        if (state.quality.width && state.quality.height && state.quality.fps) {
-          applyCurrentStreamQuality().catch((err) =>
-            console.warn("Quality apply failed:", err),
-          );
-        }
+        applyCurrentStreamQuality().catch((err) =>
+          console.warn("Quality apply failed:", err),
+        );
 
         state.sharing = true;
         stream.getVideoTracks()[0].onended = () => {
@@ -862,22 +860,19 @@ async function toggleMic(button) {
 }
 
 async function applyCurrentStreamQuality() {
-  if (
-    !localStream ||
-    !state.quality.width ||
-    !state.quality.height ||
-    !state.quality.fps
-  )
-    return;
+  if (!localStream) return;
 
   const videoTrack = localStream.getVideoTracks()[0];
   if (!videoTrack?.applyConstraints) return;
 
-  await videoTrack.applyConstraints({
-    width: { ideal: state.quality.width },
-    height: { ideal: state.quality.height },
-    frameRate: { ideal: state.quality.fps },
-  });
+  const constraints = {};
+  if (state.quality.width && state.quality.height) {
+    constraints.width = { ideal: state.quality.width };
+    constraints.height = { ideal: state.quality.height };
+  }
+  constraints.frameRate = { ideal: state.quality.fps || 30 };
+
+  await videoTrack.applyConstraints(constraints);
 }
 
 // ─── Quality picker ───────────────────────────────────────────
@@ -933,7 +928,7 @@ function positionQualityMenu() {
 
 function setQuality(label, width, height, fps) {
   state.quality = { label, width, height, fps };
-  if (qualityLabel) qualityLabel.textContent = label;
+  if (qualityLabel) qualityLabel.textContent = `Quality: ${label}`;
   // Update aria-selected on menu items
   qualityMenu?.querySelectorAll("[data-action='set-quality']").forEach((li) => {
     li.setAttribute(
@@ -1213,9 +1208,9 @@ document.addEventListener("click", async (e) => {
 });
 
 document.querySelectorAll(".video-stage").forEach((stage) => {
-  stage.addEventListener("click", () => showFsMinimize(stage));
-  stage.querySelectorAll(".fs-minimize").forEach((btn) => {
-    btn.addEventListener("click", (e) => e.stopPropagation());
+  stage.addEventListener("click", (e) => {
+    if (e.target.closest(".fs-minimize")) return;
+    showFsMinimize(stage);
   });
 });
 
@@ -1284,7 +1279,7 @@ if (savedRoomSession) {
 }
 
 syncMicButtonUI();
-if (qualityLabel) qualityLabel.textContent = state.quality.label;
+if (qualityLabel) qualityLabel.textContent = `Quality: ${state.quality.label}`;
 syncFullscreenButtons();
 if (!restoreSavedRoomIfNeeded()) {
   setScreen(getActiveScreen());

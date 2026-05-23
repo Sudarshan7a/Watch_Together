@@ -271,31 +271,6 @@
                   >?</span
                 >
                 <button
-                  class="icon-button room-fullscreen"
-                  type="button"
-                  data-action="toggle-fullscreen"
-                  data-fullscreen-target="#hostStage"
-                  aria-pressed="false"
-                  title="Fullscreen"
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                    class="icon-fs-enter"
-                  >
-                    <path
-                      d="M9 3H5a2 2 0 0 0-2 2v4M15 3h4a2 2 0 0 1 2 2v4M9 21H5a2 2 0 0 1-2-2v-4M15 21h4a2 2 0 0 0 2-2v-4"
-                    />
-                  </svg>
-                  <svg
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                    class="icon-fs-exit hidden"
-                  >
-                    <path d="M9 9H5V5M15 9h4V5M9 15H5v4M15 15h4v4" />
-                  </svg>
-                </button>
-                <button
                   class="ghost-button danger-ghost"
                   type="button"
                   data-action="end-room"
@@ -451,7 +426,7 @@
                         d="M12 3a9 9 0 1 0 0 18A9 9 0 0 0 12 3zM3 12h18M12 3c-2.5 2.5-4 5.7-4 9s1.5 6.5 4 9M12 3c2.5 2.5 4 5.7 4 9s-1.5 6.5-4 9"
                       />
                     </svg>
-                    <span class="quality-label" id="qualityLabel">1080p</span>
+                    <span class="quality-label" id="qualityLabel">Quality: Auto</span>
                   </button>
                   <ul
                     class="quality-menu hidden"
@@ -462,7 +437,18 @@
                     <li
                       role="option"
                       data-action="set-quality"
-                      data-quality="4k"
+                      data-quality="Auto"
+                      data-width="0"
+                      data-height="0"
+                      data-fps="30"
+                      aria-selected="true"
+                    >
+                      Auto
+                    </li>
+                    <li
+                      role="option"
+                      data-action="set-quality"
+                      data-quality="4K"
                       data-width="3840"
                       data-height="2160"
                       data-fps="30"
@@ -476,7 +462,6 @@
                       data-width="1920"
                       data-height="1080"
                       data-fps="30"
-                      aria-selected="false"
                     >
                       1080p · 30fps
                     </li>
@@ -496,9 +481,9 @@
                       data-quality="480p"
                       data-width="854"
                       data-height="480"
-                      data-fps="24"
+                      data-fps="30"
                     >
-                      480p · 24fps
+                      480p · 30fps
                     </li>
                   </ul>
                 </div>
@@ -529,31 +514,6 @@
                   id="userAvatarViewer"
                   >?</span
                 >
-                <button
-                  class="icon-button room-fullscreen"
-                  type="button"
-                  data-action="toggle-fullscreen"
-                  data-fullscreen-target=".viewer-stage"
-                  aria-pressed="false"
-                  title="Fullscreen"
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                    class="icon-fs-enter"
-                  >
-                    <path
-                      d="M9 3H5a2 2 0 0 0-2 2v4M15 3h4a2 2 0 0 1 2 2v4M9 21H5a2 2 0 0 1-2-2v-4M15 21h4a2 2 0 0 0 2-2v-4"
-                    />
-                  </svg>
-                  <svg
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                    class="icon-fs-exit hidden"
-                  >
-                    <path d="M9 9H5V5M15 9h4V5M9 15H5v4M15 15h4v4" />
-                  </svg>
-                </button>
                 <button
                   class="ghost-button danger-ghost"
                   type="button"
