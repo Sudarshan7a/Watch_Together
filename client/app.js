@@ -227,7 +227,6 @@ function setViewerWaitingForHost(isWaiting) {
 }
 
 // ─── (mic/audio removed — screen share + chat only) ──────────
-}
 
 // ─── Room ID generation ───────────────────────────────────────
 const ADJECTIVES = [
