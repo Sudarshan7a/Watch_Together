@@ -888,16 +888,26 @@ button, input { font: inherit; }
     radial-gradient(ellipse at 50% 30%, rgba(120,40,200,0.2), transparent 40%),
     rgba(4,2,16,0.88);
 }
+.screen[data-screen="ended"].screen-active,
+.screen[data-screen="full"].screen-active {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 18px;
+}
 .ended-card, .full-card {
   position: relative; z-index: 1;
   width: min(100%, 640px);
-  margin: 12vh auto 0;
-  padding: 52px 44px 46px;
+  margin: 0;
+  padding: 44px 34px 38px;
   text-align: center;
   background: var(--surface);
   border: 1px solid var(--border-mid);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow), var(--shadow-glow);
+  max-height: calc(100vh - 36px);
+  overflow: auto;
 }
 .ended-card h2, .full-card h2 {
   margin: 0;
