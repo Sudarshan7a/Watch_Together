@@ -146,6 +146,43 @@ function hideConnectionOverlay() {
   connectionOverlay?.classList.add("hidden");
 }
 
+function shouldRebuildPeerConnection(pc) {
+  if (!pc) return true;
+  return [pc.connectionState, pc.iceConnectionState].some((state) =>
+    ["failed", "disconnected", "closed"].includes(state),
+  );
+}
+
+function destroyPeerConnection(userId) {
+  const pc = peerConnections[userId];
+  if (!pc) return;
+
+  try {
+    pc.onicecandidate = null;
+    pc.ontrack = null;
+    pc.ondatachannel = null;
+    pc.onnegotiationneeded = null;
+    pc.onconnectionstatechange = null;
+    pc.oniceconnectionstatechange = null;
+    pc.close();
+  } catch (err) {
+    /* ignore */
+  }
+
+  delete peerConnections[userId];
+  delete dataChannels[userId];
+  document.getElementById("audio-" + userId)?.remove();
+}
+
+function rebuildPeerConnection(userId, notifyPeer = false) {
+  destroyPeerConnection(userId);
+  createPeerConnection(userId, state.role === "host");
+
+  if (notifyPeer && socket?.connected) {
+    socket.emit("signal", { to: userId, signal: { type: "reconnect-peer" } });
+  }
+}
+
 function setRoomCodeError(message = "") {
   roomCodeError?.classList.toggle("hidden", !message);
   if (roomCodeError) roomCodeError.textContent = message;
@@ -568,10 +605,7 @@ if (socket) {
     }
   });
   socket.on("user-left", ({ socketId }) => {
-    peerConnections[socketId]?.close();
-    delete peerConnections[socketId];
-    delete dataChannels[socketId];
-    document.getElementById("audio-" + socketId)?.remove();
+    destroyPeerConnection(socketId);
     if (viewerCountChip) {
       const count = Object.keys(peerConnections).length;
       viewerCountChip.textContent = `${count} watching`;
@@ -579,6 +613,11 @@ if (socket) {
   });
   socket.on("signal", async ({ from, signal }) => {
     const pc = peerConnections[from];
+    if (signal?.type === "reconnect-peer") {
+      if (!shouldRebuildPeerConnection(pc)) return;
+      rebuildPeerConnection(from, false);
+      return;
+    }
     if (!pc) return;
     if (signal.type === "offer") {
       await pc.setRemoteDescription(new RTCSessionDescription(signal));
@@ -631,6 +670,15 @@ function createPeerConnection(userId, isInitiator) {
       });
     }
   };
+
+  const handleConnectionDrop = () => {
+    if (peerConnections[userId] !== pc) return;
+    if (!shouldRebuildPeerConnection(pc)) return;
+    rebuildPeerConnection(userId, true);
+  };
+
+  pc.onconnectionstatechange = handleConnectionDrop;
+  pc.oniceconnectionstatechange = handleConnectionDrop;
 
   function setupDataChannel(channel) {
     channel.onmessage = ({ data }) => {
@@ -695,19 +743,7 @@ function cleanupRoom() {
   micStream = null;
   stopMicMonitor();
 
-  Object.entries(peerConnections).forEach(([id, pc]) => {
-    try {
-      pc.onicecandidate = null;
-      pc.ontrack = null;
-      pc.onnegotiationneeded = null;
-      pc.close();
-    } catch (e) {
-      /* ignore */
-    }
-    delete peerConnections[id];
-  });
-  Object.keys(dataChannels).forEach((id) => delete dataChannels[id]);
-  document.querySelectorAll('audio[id^="audio-"]').forEach((el) => el.remove());
+  Object.keys(peerConnections).forEach((id) => destroyPeerConnection(id));
 
   if (hostVideo) {
     hostVideo.srcObject = null;
