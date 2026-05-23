@@ -27,13 +27,18 @@ const qualityPicker = document.getElementById("qualityPicker");
 const body = document.body;
 
 // ─── Socket ───────────────────────────────────────────────────
-const socketUrl =
+const socketUrl = window.__WT_SOCKET_URL || (
   window.location.protocol === "file:"
     ? "http://localhost:3000"
-    : window.location.origin;
+    : window.location.origin
+);
 const socket = window.io
-  ? window.io(socketUrl, { transports: ["websocket"] })
+  ? window.io(socketUrl, { transports: ["websocket", "polling"] })
   : null;
+
+if (!socket) {
+  showConnectionOverlay("Server offline", "Socket client failed to load.");
+}
 
 // ─── State ────────────────────────────────────────────────────
 const state = {
@@ -558,6 +563,11 @@ if (socket) {
     hideConnectionOverlay();
     restoreSavedRoomIfNeeded();
   });
+  socket.on("connect_error", () => {
+    state.socketConnected = false;
+    delete body.dataset.socketConnected;
+    showConnectionOverlay("Server offline", "Could not connect to the room server.");
+  });
   socket.on("disconnect", () => {
     state.socketConnected = false;
     delete body.dataset.socketConnected;
@@ -596,6 +606,10 @@ if (socket) {
 
   socket.on("room-users", ({ users }) => {
     users.forEach((id) => createPeerConnection(id, false));
+    // Fix: set viewer count from the initial user list, not just on join/leave
+    if (viewerCountChip) {
+      viewerCountChip.textContent = `${users.length} watching`;
+    }
   });
   socket.on("user-joined", ({ socketId, role }) => {
     createPeerConnection(socketId, true);
@@ -643,6 +657,9 @@ function createPeerConnection(userId, isInitiator) {
     if (candidate) socket.emit("signal", { to: userId, signal: candidate });
   };
 
+  // Add all currently active tracks (screen share + mic) to this new connection.
+  // This fixes late joiners — if the host is already sharing when a viewer joins,
+  // the new peer connection gets the stream immediately instead of seeing nothing.
   if (localStream)
     localStream.getTracks().forEach((t) => pc.addTrack(t, localStream));
   if (micStream)
@@ -745,6 +762,7 @@ function cleanupRoom() {
   stopMicMonitor();
 
   Object.keys(peerConnections).forEach((id) => destroyPeerConnection(id));
+  document.querySelectorAll('audio[id^="audio-"]').forEach((el) => el.remove());
 
   if (hostVideo) {
     hostVideo.srcObject = null;
@@ -796,6 +814,8 @@ function toggleHostShare() {
         if (shareScreenBtn) shareScreenBtn.classList.add("hidden");
         if (stopSharingBtn) stopSharingBtn.classList.remove("hidden");
 
+        // Add tracks to all existing peer connections.
+        // onnegotiationneeded fires automatically and sends a new offer to each viewer.
         Object.values(peerConnections).forEach((pc) => {
           stream.getTracks().forEach((t) => pc.addTrack(t, stream));
         });
@@ -966,6 +986,11 @@ function syncFullscreenButtons() {
       btn.querySelector(".icon-fs-enter")?.classList.toggle("hidden", active);
       btn.querySelector(".icon-fs-exit")?.classList.toggle("hidden", !active);
     });
+  document.querySelectorAll(".video-stage").forEach((stage) => {
+    const btn = stage.querySelector(".fs-minimize");
+    if (!btn) return;
+    btn.classList.toggle("hidden", el !== stage);
+  });
 }
 
 async function toggleFullscreen(button) {
@@ -983,15 +1008,12 @@ async function toggleFullscreen(button) {
 
 function showFsMinimize(stageEl) {
   if (!stageEl) return;
-  if (!document.fullscreenElement) return;
   if (document.fullscreenElement !== stageEl) return;
 
   const btn = stageEl.querySelector(".fs-minimize");
   if (!btn) return;
 
   btn.classList.remove("hidden");
-  clearTimeout(btn._hideTimer);
-  btn._hideTimer = setTimeout(() => btn.classList.add("hidden"), 1800);
 }
 
 const messageTemplate = document.getElementById("messageTemplate");
@@ -1110,14 +1132,18 @@ document.addEventListener("click", async (e) => {
       break;
     }
 
-    case "copy-code":
+    case "copy-code": {
       await navigator.clipboard?.writeText(state.roomCode);
-      button.textContent = "Copied!";
-      setTimeout(() => {
-        button.innerHTML =
-          '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h10v10H9zM5 5h10v10H5z" /></svg>Copy code';
-      }, 1400);
+      const copyBtn = document.getElementById("copyCodeBtn");
+      const copyLbl = copyBtn?.querySelector(".copy-label");
+      if (copyLbl) {
+        copyLbl.textContent = "Copied!";
+        setTimeout(() => {
+          copyLbl.textContent = "Copy code";
+        }, 1400);
+      }
       break;
+    }
 
     case "save-name":
       saveNameAndContinue();
