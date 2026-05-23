@@ -1228,6 +1228,43 @@ input {
   width: 18px;
   height: 18px;
 }
+.mic-button {
+  position: relative;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease,
+    color 160ms ease;
+}
+.mic-button.mic-active {
+  color: #f6d7d7;
+}
+.mic-button.mic-speaking {
+  background: rgba(240, 180, 41, 0.12);
+  color: #ffe3a8;
+  box-shadow:
+    0 0 0 1px rgba(240, 180, 41, 0.22),
+    0 0 18px rgba(240, 180, 41, 0.34);
+  animation: micGlowPulse 1.2s ease-in-out infinite;
+}
+.mic-button.mic-speaking:hover {
+  transform: translateY(-1px) scale(1.03);
+}
+
+@keyframes micGlowPulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(240, 180, 41, 0.22),
+      0 0 18px rgba(240, 180, 41, 0.28);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(240, 180, 41, 0.28),
+      0 0 22px rgba(240, 180, 41, 0.42);
+  }
+}
+
 
 /* ══════════════════════════════════════════════
    ENDED / FULL SCREENS

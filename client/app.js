@@ -52,6 +52,11 @@ const state = {
 
 let localStream = null;
 let micStream = null;
+let micAudioContext = null;
+let micAnalyser = null;
+let micSourceNode = null;
+let micMonitorFrame = null;
+let micMonitorToken = 0;
 const peerConnections = {};
 const dataChannels = {};
 const ROOM_SESSION_KEY = "watchtogether-room-session";
@@ -173,15 +178,100 @@ function setViewerWaitingForHost(isWaiting) {
   }
 }
 
-function syncMicButtonUI(button) {
-  if (!button) return;
-  button.setAttribute("aria-pressed", String(state.micMuted));
-  button
-    .querySelector(".icon-mic-on")
-    ?.classList.toggle("hidden", state.micMuted);
-  button
-    .querySelector(".icon-mic-off")
-    ?.classList.toggle("hidden", !state.micMuted);
+function syncMicButtonUI() {
+  Array.from(document.querySelectorAll('[data-action="toggle-mic"]')).forEach(
+    (btn) => {
+      btn.setAttribute("aria-pressed", String(!state.micMuted));
+      btn
+        .querySelector(".icon-mic-on")
+        ?.classList.toggle("hidden", state.micMuted);
+      btn
+        .querySelector(".icon-mic-off")
+        ?.classList.toggle("hidden", !state.micMuted);
+      btn.classList.toggle("mic-active", !state.micMuted);
+      if (state.micMuted) btn.classList.remove("mic-speaking");
+    },
+  );
+}
+
+function setMicSpeakingUI(isSpeaking) {
+  document.querySelectorAll('[data-action="toggle-mic"]').forEach((btn) => {
+    btn.classList.toggle("mic-speaking", !state.micMuted && isSpeaking);
+  });
+}
+
+function stopMicMonitor() {
+  micMonitorToken += 1;
+  if (micMonitorFrame) cancelAnimationFrame(micMonitorFrame);
+  micMonitorFrame = null;
+  setMicSpeakingUI(false);
+
+  try {
+    micSourceNode?.disconnect();
+  } catch (err) {
+    /* ignore */
+  }
+  try {
+    micAnalyser?.disconnect();
+  } catch (err) {
+    /* ignore */
+  }
+  micSourceNode = null;
+  micAnalyser = null;
+
+  if (micAudioContext && micAudioContext.state !== "closed") {
+    micAudioContext.close().catch(() => {});
+  }
+  micAudioContext = null;
+}
+
+function readMicLevel(token) {
+  if (token !== micMonitorToken) return;
+  if (
+    !micAnalyser ||
+    state.micMuted ||
+    !micStream?.getAudioTracks().some((track) => track.enabled)
+  ) {
+    setMicSpeakingUI(false);
+    micMonitorFrame = requestAnimationFrame(() => readMicLevel(token));
+    return;
+  }
+
+  const data = new Uint8Array(micAnalyser.fftSize);
+  micAnalyser.getByteTimeDomainData(data);
+  let sum = 0;
+  for (let index = 0; index < data.length; index += 1) {
+    const sample = (data[index] - 128) / 128;
+    sum += sample * sample;
+  }
+
+  const rms = Math.sqrt(sum / data.length);
+  setMicSpeakingUI(rms > 0.03);
+  micMonitorFrame = requestAnimationFrame(() => readMicLevel(token));
+}
+
+async function startMicMonitor() {
+  stopMicMonitor();
+  if (!micStream) return;
+
+  const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextCtor) return;
+
+  micAudioContext = new AudioContextCtor();
+  if (micAudioContext.state === "suspended") {
+    try {
+      await micAudioContext.resume();
+    } catch (err) {
+      /* ignore */
+    }
+  }
+
+  const token = ++micMonitorToken;
+  micSourceNode = micAudioContext.createMediaStreamSource(micStream);
+  micAnalyser = micAudioContext.createAnalyser();
+  micAnalyser.fftSize = 1024;
+  micSourceNode.connect(micAnalyser);
+  readMicLevel(token);
 }
 
 // ─── Room ID generation ───────────────────────────────────────
@@ -603,6 +693,7 @@ function cleanupRoom() {
   localStream = null;
   micStream?.getTracks().forEach((t) => t.stop());
   micStream = null;
+  stopMicMonitor();
 
   Object.entries(peerConnections).forEach(([id, pc]) => {
     try {
@@ -705,7 +796,12 @@ async function toggleMic(button) {
     micStream.getAudioTracks().forEach((t) => {
       t.enabled = !state.micMuted;
     });
-  syncMicButtonUI(button);
+  if (state.micMuted) {
+    stopMicMonitor();
+  } else if (micStream) {
+    await startMicMonitor();
+  }
+  syncMicButtonUI();
 }
 
 async function applyCurrentStreamQuality() {
@@ -1116,7 +1212,7 @@ if (savedRoomSession) {
   syncRoomCode(randomRoomCode());
 }
 
-syncMicButtonUI(document.querySelector('[data-action="toggle-mic"]'));
+syncMicButtonUI();
 if (qualityLabel) qualityLabel.textContent = state.quality.label;
 syncFullscreenButtons();
 if (!restoreSavedRoomIfNeeded()) {
