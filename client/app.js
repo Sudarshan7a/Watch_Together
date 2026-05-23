@@ -51,6 +51,7 @@ if (!socket) {
 const state = {
   roomCode: "",
   viewerAudioMuted: false,
+  viewerVolume: 1,
   sharing: false,
   socketConnected: false,
   displayName: "",
@@ -856,21 +857,56 @@ document.addEventListener("click", (e) => {
 });
 
 // ─── Viewer audio ─────────────────────────────────────────────
-function toggleViewerAudio(button) {
-  state.viewerAudioMuted = !state.viewerAudioMuted;
-  document.querySelectorAll('audio[id^="audio-"]').forEach((el) => {
-    el.muted = state.viewerAudioMuted;
-  });
-  if (viewerVideo) viewerVideo.muted = state.viewerAudioMuted;
+function syncViewerAudioUI(button) {
+  if (!button) button = document.querySelector('[data-action="toggle-viewer-audio"]');
+  if (!button) return;
   button
     .querySelector(".icon-unmute")
-    ?.classList.toggle("hidden", state.viewerAudioMuted);
+    ?.classList.toggle("hidden", state.viewerAudioMuted || state.viewerVolume === 0);
   button
     .querySelector(".icon-muted")
-    ?.classList.toggle("hidden", !state.viewerAudioMuted);
+    ?.classList.toggle("hidden", !(state.viewerAudioMuted || state.viewerVolume === 0));
   const label = button.querySelector(".audio-label");
-  if (label) label.textContent = state.viewerAudioMuted ? "Unmute" : "Mute";
+  if (label) label.textContent = state.viewerAudioMuted || state.viewerVolume === 0 ? "Unmute" : "Mute";
+  
+  const slider = document.querySelector('.volume-slider');
+  if (slider) {
+    slider.value = state.viewerAudioMuted ? 0 : state.viewerVolume;
+  }
 }
+
+function applyViewerVolume() {
+  document.querySelectorAll('audio[id^="audio-"]').forEach((el) => {
+    el.muted = state.viewerAudioMuted;
+    el.volume = state.viewerVolume;
+  });
+  if (viewerVideo) {
+    viewerVideo.muted = state.viewerAudioMuted;
+    viewerVideo.volume = state.viewerVolume;
+  }
+}
+
+function toggleViewerAudio(button) {
+  if (state.viewerAudioMuted || state.viewerVolume === 0) {
+    state.viewerAudioMuted = false;
+    if (state.viewerVolume === 0) state.viewerVolume = 1; // restore default volume if it was 0
+  } else {
+    state.viewerAudioMuted = true;
+  }
+  applyViewerVolume();
+  syncViewerAudioUI(button);
+}
+
+// Attach volume slider listeners
+document.addEventListener("input", (e) => {
+  if (e.target.matches(".volume-slider")) {
+    const val = parseFloat(e.target.value);
+    state.viewerVolume = val;
+    state.viewerAudioMuted = val === 0;
+    applyViewerVolume();
+    syncViewerAudioUI();
+  }
+});
 
 // ─── Chat messages — Discord-style grouped ───────────────────
 function syncFullscreenButtons() {
