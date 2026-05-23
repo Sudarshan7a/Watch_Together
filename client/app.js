@@ -63,6 +63,7 @@ let micMonitorFrame = null;
 let micMonitorToken = 0;
 const peerConnections = {};
 const dataChannels = {};
+const negotiationLocks = {}; // prevents overlapping offer/answer exchanges per peer
 const ROOM_SESSION_KEY = "watchtogether-room-session";
 const MEMBER_ID_KEY = "watchtogether-member-id";
 const ROOM_COOKIE_NAME = "watchtogether_room";
@@ -175,7 +176,11 @@ function destroyPeerConnection(userId) {
 
   delete peerConnections[userId];
   delete dataChannels[userId];
-  document.getElementById("audio-" + userId)?.remove();
+  delete negotiationLocks[userId];
+  // Remove all per-track audio elements for this peer (audio-{userId}-{trackId})
+  document
+    .querySelectorAll(`audio[id^="audio-${userId}"]`)
+    .forEach((el) => el.remove());
 }
 
 function rebuildPeerConnection(userId, notifyPeer = false) {
@@ -631,15 +636,24 @@ if (socket) {
       return;
     }
     if (!pc) return;
-    if (signal.type === "offer") {
-      await pc.setRemoteDescription(new RTCSessionDescription(signal));
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      socket.emit("signal", { to: from, signal: pc.localDescription });
-    } else if (signal.type === "answer") {
-      await pc.setRemoteDescription(new RTCSessionDescription(signal));
-    } else if (signal.candidate) {
-      await pc.addIceCandidate(new RTCIceCandidate(signal));
+    try {
+      if (signal.type === "offer") {
+        // Only accept offer if we are not currently mid-negotiation as offerer
+        if (pc.signalingState !== "stable" && pc.signalingState !== "have-remote-offer") return;
+        await pc.setRemoteDescription(new RTCSessionDescription(signal));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socket.emit("signal", { to: from, signal: pc.localDescription });
+      } else if (signal.type === "answer") {
+        if (pc.signalingState !== "have-local-offer") return;
+        await pc.setRemoteDescription(new RTCSessionDescription(signal));
+      } else if (signal.candidate) {
+        if (pc.remoteDescription) {
+          await pc.addIceCandidate(new RTCIceCandidate(signal));
+        }
+      }
+    } catch (err) {
+      console.warn("Signal handling error (likely stale):", err.message);
     }
   });
 }
@@ -655,27 +669,44 @@ function createPeerConnection(userId, isInitiator) {
     if (candidate) socket.emit("signal", { to: userId, signal: candidate });
   };
 
-  // Add all currently active tracks (screen share + mic) to this new connection.
-  // This fixes late joiners — if the host is already sharing when a viewer joins,
-  // the new peer connection gets the stream immediately instead of seeing nothing.
-  if (localStream)
+  // Add outbound tracks to this new connection:
+  //   • localStream (screen share) — host only; viewers never share their screen.
+  //   • micStream (mic audio)      — both roles can talk.
+  // This also fixes late joiners: if the host is already sharing when a viewer
+  // joins, the new peer connection gets the live stream immediately.
+  if (localStream && state.role === "host")
     localStream.getTracks().forEach((t) => pc.addTrack(t, localStream));
   if (micStream)
     micStream.getTracks().forEach((t) => pc.addTrack(t, micStream));
 
   pc.ontrack = ({ track, streams }) => {
     if (track.kind === "audio") {
-      let el = document.getElementById("audio-" + userId);
-      if (!el) {
-        el = document.createElement("audio");
-        el.id = "audio-" + userId;
-        el.autoplay = true;
-        document.body.appendChild(el);
+      // Each audio track gets its own element keyed by track.id.
+      // This lets screen-capture audio and mic audio coexist without
+      // clobbering each other (the old code used a single element per peer).
+      //
+      // Skip tracks that are already part of the video stream — viewerVideo
+      // will play them automatically, so a separate audio element would echo.
+      const isScreenAudio =
+        streams[0] && streams[0].getVideoTracks().length > 0;
+      if (!isScreenAudio) {
+        const elId = "audio-" + userId + "-" + track.id;
+        let el = document.getElementById(elId);
+        if (!el) {
+          el = document.createElement("audio");
+          el.id = elId;
+          el.autoplay = true;
+          document.body.appendChild(el);
+          // Clean up when the track ends (e.g. host stops mic)
+          track.onended = () => el.remove();
+        }
+        el.muted = state.viewerAudioMuted;
+        el.srcObject = new MediaStream([track]);
       }
-      el.muted = state.viewerAudioMuted;
-      el.srcObject = new MediaStream([track]);
     }
-    if (track.kind === "video" && viewerVideo) {
+    // Only viewers display incoming video (screen share from host).
+    // The host never receives video from viewers, so this guard is defensive.
+    if (track.kind === "video" && state.role === "viewer" && viewerVideo) {
       viewerVideo.srcObject = streams[0];
       viewerVideo.classList.remove("hidden");
       if (viewerPlaceholder) viewerPlaceholder.style.display = "none";
@@ -685,6 +716,7 @@ function createPeerConnection(userId, isInitiator) {
       });
     }
   };
+
 
   const handleConnectionDrop = () => {
     if (peerConnections[userId] !== pc) return;
@@ -724,22 +756,42 @@ function createPeerConnection(userId, isInitiator) {
     };
   }
 
-  pc.onnegotiationneeded = async () => {
+  // Track whether a negotiation was requested while one was already running.
+  // When screen share starts it adds video+audio simultaneously, firing
+  // onnegotiationneeded twice. The lock prevents overlapping offers (which
+  // causes the m-lines error), and the pending flag ensures the second
+  // track's negotiation is never silently dropped.
+  let negotiationPending = false;
+
+  async function runNegotiation() {
+    if (negotiationLocks[userId]) {
+      negotiationPending = true;
+      return;
+    }
+    negotiationLocks[userId] = true;
+    negotiationPending = false;
     try {
+      // Wait until signaling is stable before creating a new offer.
+      // If still unstable, queue a retry so the track change isn't lost.
+      if (pc.signalingState !== "stable") {
+        negotiationPending = true;
+        return;
+      }
       await pc.setLocalDescription(await pc.createOffer());
       socket.emit("signal", { to: userId, signal: pc.localDescription });
     } catch (err) {
-      console.error(err);
+      console.error("Negotiation error:", err);
+    } finally {
+      negotiationLocks[userId] = false;
+      // If a new negotiation was requested while we were busy, run it now.
+      if (negotiationPending) {
+        negotiationPending = false;
+        setTimeout(runNegotiation, 0);
+      }
     }
-  };
-
-  if (isInitiator) {
-    pc.createOffer()
-      .then((o) => pc.setLocalDescription(o))
-      .then(() =>
-        socket.emit("signal", { to: userId, signal: pc.localDescription }),
-      );
   }
+
+  pc.onnegotiationneeded = runNegotiation;
 
   return pc;
 }
@@ -778,8 +830,9 @@ function cleanupRoom() {
   if (stopSharingBtn) stopSharingBtn.classList.add("hidden");
 
   state.sharing = false;
-  state.micMuted = false;
+  state.micMuted = true;  // mic starts muted — match the initial state
   state.viewerAudioMuted = false;
+  syncMicButtonUI();       // reset mic button icon/label after leaving room
 }
 
 // ─── Screen sharing ───────────────────────────────────────────
@@ -833,7 +886,10 @@ function toggleHostShare() {
 
 // ─── Mic ──────────────────────────────────────────────────────
 async function toggleMic(button) {
-  state.micMuted = !state.micMuted;
+  const wasMuted = state.micMuted;
+  state.micMuted = !wasMuted;
+
+  // First-time mic enable: request permission and add tracks to all peers
   if (!state.micMuted && !micStream) {
     try {
       micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -842,13 +898,20 @@ async function toggleMic(button) {
       });
     } catch (err) {
       console.error("Mic failed:", err);
+      // Permission denied — revert the toggle so UI stays consistent
       state.micMuted = true;
+      syncMicButtonUI();
+      return;
     }
   }
-  if (micStream)
+
+  // Enable/disable the track — applies whether mic was just acquired or already existed
+  if (micStream) {
     micStream.getAudioTracks().forEach((t) => {
       t.enabled = !state.micMuted;
     });
+  }
+
   if (state.micMuted) {
     stopMicMonitor();
   } else if (micStream) {
