@@ -138,6 +138,7 @@
                 maxlength="16"
               />
             </div>
+            <p class="form-error hidden" id="roomCodeError" aria-live="polite"></p>
             <button class="button button-primary wide-button" type="button" data-action="join-room">
               Join Room
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
@@ -274,7 +275,7 @@
                 <span class="room-chip status-chip" id="viewerRoomChip">COZYMOON-4821</span>
               </div>
               <div class="room-top-actions">
-                <span class="top-status">Watching live</span>
+                <span class="top-status" id="viewerStatusChip">Watching live</span>
                 <span class="avatar-bubble alt user-avatar" id="userAvatarViewer">?</span>
                 <button class="icon-button room-fullscreen" type="button" data-action="toggle-fullscreen" data-fullscreen-target=".viewer-stage" aria-pressed="false" title="Fullscreen">
                   <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-fs-enter">
@@ -379,6 +380,16 @@
         </section>
 
       </main>
+    </div>
+
+    <div class="connection-overlay hidden" id="connectionOverlay" aria-live="polite">
+      <div class="connection-card">
+        <span class="connection-spinner" aria-hidden="true"></span>
+        <div>
+          <strong id="connectionTitle">Reconnecting</strong>
+          <p id="connectionCopy">Keeping your room open while the connection comes back.</p>
+        </div>
+      </div>
     </div>
 
     <template id="messageTemplate">

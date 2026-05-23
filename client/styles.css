@@ -533,6 +533,17 @@ button, input { font: inherit; }
   font-size: 0.86rem;
   letter-spacing: 0.02em;
 }
+.form-error {
+  min-height: 20px;
+  margin: -6px 0 14px;
+  color: #ff9a9a;
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+.code-field.has-error input {
+  border-color: rgba(255, 120, 120, 0.62);
+  box-shadow: 0 0 0 3px rgba(255, 120, 120, 0.12);
+}
 .back-link {
   display: inline-flex; align-items: center; gap: 6px;
   margin-top: 18px;
@@ -914,6 +925,49 @@ button, input { font: inherit; }
 /* ══════════════════════════════════════════════
    UTILITIES
    ══════════════════════════════════════════════ */
+.connection-overlay {
+  position: fixed;
+  inset: auto 18px 18px auto;
+  z-index: 20;
+  width: min(360px, calc(100vw - 36px));
+}
+.connection-card {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 14px 16px;
+  color: var(--text);
+  background: rgba(18, 14, 38, 0.92);
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+}
+.connection-card strong {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 0.9rem;
+}
+.connection-card p {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+.connection-spinner {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: 2px solid rgba(255,255,255,0.18);
+  border-top-color: var(--accent-2);
+  animation: spin 850ms linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .sr-only {
   position: absolute; width: 1px; height: 1px;
   padding: 0; margin: -1px; overflow: hidden;
