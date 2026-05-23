@@ -5,7 +5,6 @@ import { fileURLToPath } from "url";
 import { Server } from "socket.io";
 import cors from "cors";
 
-// ─── App Setup ───────────────────────────────────────────────
 const app = express();
 app.use(cors());
 
@@ -24,8 +23,6 @@ const io = new Server(server, {
   },
 });
 
-// ─── Health Check ─────────────────────────────────────────────
-// Render.com pings this URL to keep your server awake
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
@@ -34,74 +31,164 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(clientDir, "index.html"));
 });
 
-// ─── Room State ───────────────────────────────────────────────
-// This object tracks who is in which room
-// Structure: { "MANGO-7291": ["socketId1", "socketId2"] }
 const rooms = {};
+const HOST_RECONNECT_GRACE_MS = 30000;
+const ROOM_CODE_PATTERN = /^[A-Z0-9]+-[0-9]{4}$/;
 
-// ─── Socket Events ────────────────────────────────────────────
+function normalizeRoomCode(value = "") {
+  return String(value).toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 16);
+}
+
+function createRoom() {
+  return {
+    members: new Map(),
+    hostGraceTimer: null,
+  };
+}
+
+function getActiveSocketIds(roomCode, exceptSocketId = "") {
+  const room = rooms[roomCode];
+  if (!room) return [];
+
+  return Array.from(room.members.values())
+    .map((member) => member.socketId)
+    .filter((socketId) => socketId && socketId !== exceptSocketId && io.sockets.sockets.has(socketId));
+}
+
+function getHostMember(roomCode) {
+  const room = rooms[roomCode];
+  if (!room) return null;
+  return Array.from(room.members.values()).find((member) => member.role === "host") || null;
+}
+
+function endRoom(roomCode, reason = "ended") {
+  const room = rooms[roomCode];
+  if (!room) return;
+
+  if (room.hostGraceTimer) clearTimeout(room.hostGraceTimer);
+  io.to(roomCode).emit("room-ended");
+
+  getActiveSocketIds(roomCode).forEach((id) => {
+    const client = io.sockets.sockets.get(id);
+    if (client) {
+      client.leave(roomCode);
+      client.roomCode = null;
+      client.role = null;
+      client.memberId = null;
+    }
+  });
+
+  delete rooms[roomCode];
+  console.log(`room ${roomCode} ${reason}`);
+}
+
+function removeSocketFromRoom(socket, intentional = false) {
+  const roomCode = socket.roomCode;
+  const room = rooms[roomCode];
+  if (!room) return;
+
+  const member = room.members.get(socket.memberId);
+  if (!member || member.socketId !== socket.id) return;
+
+  if (member.role === "host") {
+    if (intentional) {
+      endRoom(roomCode, "ended by host");
+      return;
+    }
+
+    member.socketId = null;
+    socket.to(roomCode).emit("host-reconnecting");
+    room.hostGraceTimer = setTimeout(() => {
+      endRoom(roomCode, "ended - host did not reconnect");
+    }, HOST_RECONNECT_GRACE_MS);
+    return;
+  }
+
+  room.members.delete(socket.memberId);
+  socket.to(roomCode).emit("user-left", { socketId: socket.id });
+
+  if (room.members.size === 0) {
+    if (room.hostGraceTimer) clearTimeout(room.hostGraceTimer);
+    delete rooms[roomCode];
+    console.log(`room ${roomCode} deleted - empty`);
+  }
+}
+
 io.on("connection", (socket) => {
   console.log("someone connected:", socket.id);
 
-  // ── Event 1: join-room ──────────────────────────────────────
-  // Fires when a user creates or joins a room
-  // Data received: { roomCode: "MANGO-7291", role: "host" or "viewer" }
-  socket.on("join-room", ({ roomCode, role }) => {
-    // Attach room info to this socket for later use
-    socket.roomCode = roomCode;
-    socket.role = role;
+  socket.on("join-room", ({ roomCode, role, memberId }) => {
+    roomCode = normalizeRoomCode(roomCode);
 
-    // Create the room array if it doesn't exist yet
-    if (!rooms[roomCode]) {
-      rooms[roomCode] = [];
+    if (!roomCode || (role !== "host" && role !== "viewer") || !memberId) {
+      socket.emit("room-unavailable");
+      return;
     }
 
-    // Limit: 1 host + 5 viewers max
-    if (rooms[roomCode].length >= 6) {
+    if (!ROOM_CODE_PATTERN.test(roomCode)) {
+      socket.emit("room-unavailable");
+      return;
+    }
+
+    if (!rooms[roomCode] && role === "viewer") {
+      socket.emit("room-unavailable");
+      return;
+    }
+
+    if (!rooms[roomCode]) {
+      rooms[roomCode] = createRoom();
+    }
+
+    const room = rooms[roomCode];
+    const existingMember = room.members.get(memberId);
+    const hostMember = getHostMember(roomCode);
+
+    if (role === "host" && hostMember && hostMember.memberId !== memberId) {
       socket.emit("room-full");
       return;
     }
 
-    // Add this socket to the room
-    rooms[roomCode].push(socket.id);
+    if (!existingMember && room.members.size >= 6) {
+      socket.emit("room-full");
+      return;
+    }
 
-    // Join the Socket.io room (lets us broadcast to everyone in it)
+    if (room.hostGraceTimer && role === "host") {
+      clearTimeout(room.hostGraceTimer);
+      room.hostGraceTimer = null;
+      socket.to(roomCode).emit("host-reconnected");
+    }
+
+    socket.roomCode = roomCode;
+    socket.role = role;
+    socket.memberId = memberId;
+
+    const previousSocketId = existingMember?.socketId || "";
+    const isReconnect = !!existingMember;
+    room.members.set(memberId, { memberId, socketId: socket.id, role });
     socket.join(roomCode);
 
-    console.log(
-      `${role} joined room ${roomCode} — total: ${rooms[roomCode].length}`,
-    );
+    console.log(`${role} joined room ${roomCode} - total: ${room.members.size}`);
 
-    // Tell everyone already in the room that a new person joined
-    // socket.to() sends to everyone EXCEPT the sender
-    socket.to(roomCode).emit("user-joined", {
-      socketId: socket.id,
-      role: role,
-    });
+    if (!isReconnect || previousSocketId !== socket.id) {
+      socket.to(roomCode).emit("user-joined", {
+        socketId: socket.id,
+        role,
+      });
+    }
 
-    // Send back the current list of people in the room
-    // The new joiner needs to know who is already there
-    // so they can initiate connections with them
     socket.emit("room-users", {
-      users: rooms[roomCode].filter((id) => id !== socket.id),
+      users: getActiveSocketIds(roomCode, socket.id),
     });
   });
 
-  // ── Event 2: signal ─────────────────────────────────────────
-  // Fires when a browser wants to send WebRTC handshake data
-  // to a specific other browser
-  // Data received: { to: "socketId", signal: { ...webrtc data } }
   socket.on("signal", ({ to, signal }) => {
-    // Forward the signal to the correct person
-    // We include "from" so the receiver knows who sent it
     io.to(to).emit("signal", {
       from: socket.id,
-      signal: signal,
+      signal,
     });
   });
 
-  // ── Event 3: end-room ───────────────────────────────────────
-  // Host ends the room for everyone
   socket.on("end-room", () => {
     const roomCode = socket.roomCode;
 
@@ -109,64 +196,27 @@ io.on("connection", (socket) => {
       return;
     }
 
-    io.to(roomCode).emit("room-ended");
-
-    rooms[roomCode].forEach((id) => {
-      const client = io.sockets.sockets.get(id);
-      if (client) {
-        client.leave(roomCode);
-        client.roomCode = null;
-      }
-    });
-
-    delete rooms[roomCode];
+    endRoom(roomCode, "ended by host");
     socket.roomCode = null;
-    console.log(`room ${roomCode} ended by host`);
+    socket.role = null;
+    socket.memberId = null;
   });
 
-  // ── Event 4: disconnect ──────────────────────────────────────
-  // Fires automatically when someone closes the tab or loses connection
-  socket.on("disconnect", () => {
+  socket.on("leave-room", () => {
     const roomCode = socket.roomCode;
+    removeSocketFromRoom(socket, socket.role === "host");
+    if (roomCode) socket.leave(roomCode);
+    socket.roomCode = null;
+    socket.role = null;
+    socket.memberId = null;
+  });
 
-    if (roomCode && rooms[roomCode] && socket.role === "host") {
-      io.to(roomCode).emit("room-ended");
-
-      rooms[roomCode].forEach((id) => {
-        const client = io.sockets.sockets.get(id);
-        if (client) {
-          client.leave(roomCode);
-          client.roomCode = null;
-        }
-      });
-
-      delete rooms[roomCode];
-      console.log(`room ${roomCode} ended — host disconnected`);
-      console.log("someone disconnected:", socket.id);
-      return;
-    }
-
-    if (roomCode && rooms[roomCode]) {
-      // Remove this socket from the room array
-      rooms[roomCode] = rooms[roomCode].filter((id) => id !== socket.id);
-
-      // Tell everyone remaining in the room that this person left
-      socket.to(roomCode).emit("user-left", {
-        socketId: socket.id,
-      });
-
-      // Clean up empty rooms so memory doesn't leak
-      if (rooms[roomCode].length === 0) {
-        delete rooms[roomCode];
-        console.log(`room ${roomCode} deleted — empty`);
-      }
-    }
-
+  socket.on("disconnect", () => {
+    removeSocketFromRoom(socket, false);
     console.log("someone disconnected:", socket.id);
   });
 });
 
-// ─── Start Server ─────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
 
 server.listen(PORT, () => {
