@@ -693,6 +693,7 @@ function createPeerConnection(userId, isInitiator) {
           payload.message,
           "other",
           payload.time || Date.now(),
+          !!payload.isHost,
         );
     };
   }
@@ -1004,6 +1005,7 @@ function addMessage(
   message,
   kind = "other",
   timestamp = Date.now(),
+  isHost = false,
 ) {
   const prevSender = feedLastSender.get(feed) || null;
   const isContinuation = prevSender === label;
@@ -1014,6 +1016,7 @@ function addMessage(
   const node = messageTemplate.content.firstElementChild.cloneNode(true);
   const avatarEl = node.querySelector(".msg-avatar");
   const metaEl = node.querySelector(".message-meta");
+  const hostBadgeEl = node.querySelector(".host-badge");
   const pEl = node.querySelector("p");
 
   if (kind === "self") node.classList.add("message-self");
@@ -1034,6 +1037,11 @@ function addMessage(
     const initial = getInitial(label === "You" ? state.displayName : label);
     if (avatarEl) {
       avatarEl.textContent = initial;
+    }
+
+    if (hostBadgeEl) {
+      hostBadgeEl.textContent = "Host";
+      hostBadgeEl.classList.toggle("hidden", !isHost || label === "You");
     }
 
     const timeEl = document.createElement("span");
@@ -1198,6 +1206,7 @@ document.querySelectorAll("[data-chat-form]").forEach((form) => {
       user: state.displayName || "Guest",
       message: text,
       time: Date.now(),
+      isHost: state.role === "host",
     };
 
     Object.values(dataChannels).forEach((dc) => {
