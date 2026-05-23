@@ -231,14 +231,18 @@ server.listen(PORT, () => {
     const pingUrl = `${renderUrl}/health`;
     console.log(`Keep-alive enabled: pinging ${pingUrl} every 30 s`);
     setInterval(() => {
-      const mod = pingUrl.startsWith("https") ? https : http;
-      const req = mod.get(pingUrl, (res) => {
-        // Drain the response so the socket is freed
-        res.resume();
-      });
-      req.on("error", (err) => {
-        console.warn("Keep-alive ping failed:", err.message);
-      });
+      try {
+        const mod = pingUrl.startsWith("https") ? https : http;
+        const req = mod.get(pingUrl, (res) => {
+          // Drain the response so the socket is freed
+          res.resume();
+        });
+        req.on("error", (err) => {
+          console.warn("Keep-alive ping failed:", err.message);
+        });
+      } catch (err) {
+        console.warn("Failed to initiate keep-alive ping:", err.message);
+      }
     }, 30_000);
   }
 });
