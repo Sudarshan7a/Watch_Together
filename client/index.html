@@ -4,7 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WatchTogether</title>
-    <meta name="description" content="A cozy private cinema for small groups." />
+    <meta
+      name="description"
+      content="A cozy private cinema for small groups."
+    />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -26,31 +29,48 @@
           WatchTogether
         </div>
         <div class="nav-links">
-          <button class="nav-link" type="button" data-action="go-home">Home</button>
-          <button class="nav-link" type="button" data-action="go-join">Join Room</button>
-          <button class="nav-cta" type="button" data-action="open-create">Create Room</button>
+          <button class="nav-link" type="button" data-action="go-home">
+            Home
+          </button>
+          <button class="nav-link" type="button" data-action="go-join">
+            Join Room
+          </button>
+          <button class="nav-cta" type="button" data-action="open-create">
+            Create Room
+          </button>
         </div>
       </nav>
 
       <main class="app">
-
         <!-- ── Landing ── -->
         <section class="screen screen-active" data-screen="landing">
           <div class="landing-hero">
             <p class="eyebrow">Private cinema · small rooms</p>
-            <h1>Watch together.<br><em>Privately.</em></h1>
+            <h1>Watch together.<br /><em>Privately.</em></h1>
             <p class="hero-copy">
-              Cozy screen sharing with encrypted rooms, live chat, and a
-              focused layout built for movie night.
+              Cozy screen sharing with encrypted rooms, live chat, and a focused
+              layout built for movie night.
             </p>
             <div class="hero-actions">
-              <button class="button button-primary" type="button" data-action="open-create">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+              <button
+                class="button button-primary"
+                type="button"
+                data-action="open-create"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
                 Create Room
               </button>
-              <button class="button button-secondary" type="button" data-action="go-join">
+              <button
+                class="button button-secondary"
+                type="button"
+                data-action="go-join"
+              >
                 Enter Room Code
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M5 12h13M13 6l6 6-6 6" />
+                </svg>
               </button>
             </div>
             <div class="feature-row">
@@ -64,7 +84,7 @@
           <article class="preview-card">
             <div class="preview-media">
               <div class="preview-play" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></svg>
+                <svg viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z" /></svg>
               </div>
               <div class="preview-audience" aria-hidden="true">
                 <span class="avatar-bubble small">A</span>
@@ -76,7 +96,9 @@
             <div class="preview-meta">
               <div>
                 <p class="preview-title">Private room view</p>
-                <p class="preview-subtitle">Host controls · live chat · zero clutter.</p>
+                <p class="preview-subtitle">
+                  Host controls · live chat · zero clutter.
+                </p>
               </div>
             </div>
           </article>
@@ -85,12 +107,18 @@
             <article class="info-card">
               <p class="section-label">Private by design</p>
               <h2>Small groups, high trust, no account wall.</h2>
-              <p>Share a room code with only the people you want. The interface stays calm and the experience stays focused.</p>
+              <p>
+                Share a room code with only the people you want. The interface
+                stays calm and the experience stays focused.
+              </p>
             </article>
             <article class="info-card muted-card">
               <p class="section-label">Cinematic feel</p>
               <h2>Atmosphere first, controls second.</h2>
-              <p>Deep midnight surfaces, electric violet accents, and editorial typography — built for movie night.</p>
+              <p>
+                Deep midnight surfaces, electric violet accents, and editorial
+                typography — built for movie night.
+              </p>
             </article>
           </section>
         </section>
@@ -114,7 +142,9 @@
               />
               <button class="button button-primary wide-button" type="submit">
                 Continue
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M5 12h13M13 6l6 6-6 6" />
+                </svg>
               </button>
             </form>
           </div>
@@ -125,7 +155,9 @@
           <div class="center-stage join-stage">
             <p class="page-kicker">WatchTogether</p>
             <h2>Enter room code</h2>
-            <p class="page-copy">Join a private room with a code from the host.</p>
+            <p class="page-copy">
+              Join a private room with a code from the host.
+            </p>
             <div class="code-field">
               <label class="sr-only" for="roomCodeInput">Room code</label>
               <input
@@ -138,13 +170,25 @@
                 maxlength="16"
               />
             </div>
-            <p class="form-error hidden" id="roomCodeError" aria-live="polite"></p>
-            <button class="button button-primary wide-button" type="button" data-action="join-room">
+            <p
+              class="form-error hidden"
+              id="roomCodeError"
+              aria-live="polite"
+            ></p>
+            <button
+              class="button button-primary wide-button"
+              type="button"
+              data-action="join-room"
+            >
               Join Room
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 12h13M13 6l6 6-6 6" />
+              </svg>
             </button>
             <p class="helper-copy">Need a code? Ask the host.</p>
-            <button class="back-link" type="button" data-action="go-home">← Back to Home</button>
+            <button class="back-link" type="button" data-action="go-home">
+              ← Back to Home
+            </button>
           </div>
         </section>
 
@@ -157,18 +201,32 @@
             <div class="room-code-panel">
               <div class="room-code" id="generatedRoomCode">COZYMOON-4821</div>
               <div class="room-code-actions">
-                <button class="ghost-button" type="button" data-action="copy-code">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h10v10H9zM5 5h10v10H5z"/></svg>
+                <button
+                  class="ghost-button"
+                  type="button"
+                  data-action="copy-code"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M9 9h10v10H9zM5 5h10v10H5z" />
+                  </svg>
                   Copy code
                 </button>
               </div>
             </div>
-            <button class="button button-primary wide-button" type="button" data-action="go-host">
+            <button
+              class="button button-primary wide-button"
+              type="button"
+              data-action="go-host"
+            >
               Enter room
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 12h13M13 6l6 6-6 6" />
+              </svg>
             </button>
             <p class="helper-copy lock-copy">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11V8a5 5 0 0 1 10 0v3M6 11h12v10H6z"/></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M7 11V8a5 5 0 0 1 10 0v3M6 11h12v10H6z" />
+              </svg>
               Only people with this code can join.
             </p>
           </div>
@@ -183,20 +241,47 @@
                   <span class="room-brand-dot"></span>
                   WatchTogether
                 </span>
-                <span class="room-chip status-chip" id="hostRoomChip">COZYMOON-4821</span>
+                <span class="room-chip status-chip" id="hostRoomChip"
+                  >COZYMOON-4821</span
+                >
               </div>
               <div class="room-top-actions">
                 <span class="top-status" id="viewerCountChip">0 watching</span>
-                <span class="avatar-bubble user-avatar" id="userAvatarHost">?</span>
-                <button class="icon-button room-fullscreen" type="button" data-action="toggle-fullscreen" data-fullscreen-target="#hostStage" aria-pressed="false" title="Fullscreen">
-                  <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-fs-enter">
-                    <path d="M9 3H5a2 2 0 0 0-2 2v4M15 3h4a2 2 0 0 1 2 2v4M9 21H5a2 2 0 0 1-2-2v-4M15 21h4a2 2 0 0 0 2-2v-4"/>
+                <span class="avatar-bubble user-avatar" id="userAvatarHost"
+                  >?</span
+                >
+                <button
+                  class="icon-button room-fullscreen"
+                  type="button"
+                  data-action="toggle-fullscreen"
+                  data-fullscreen-target="#hostStage"
+                  aria-pressed="false"
+                  title="Fullscreen"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    class="icon-fs-enter"
+                  >
+                    <path
+                      d="M9 3H5a2 2 0 0 0-2 2v4M15 3h4a2 2 0 0 1 2 2v4M9 21H5a2 2 0 0 1-2-2v-4M15 21h4a2 2 0 0 0 2-2v-4"
+                    />
                   </svg>
-                  <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-fs-exit hidden">
-                    <path d="M9 9H5V5M15 9h4V5M9 15H5v4M15 15h4v4"/>
+                  <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    class="icon-fs-exit hidden"
+                  >
+                    <path d="M9 9H5V5M15 9h4V5M9 15H5v4M15 15h4v4" />
                   </svg>
                 </button>
-                <button class="ghost-button danger-ghost" type="button" data-action="end-room">End Room</button>
+                <button
+                  class="ghost-button danger-ghost"
+                  type="button"
+                  data-action="end-room"
+                >
+                  End Room
+                </button>
               </div>
             </header>
 
@@ -207,12 +292,28 @@
                 </div>
                 <div class="video-stage" id="hostStage">
                   <div class="stage-placeholder" id="hostPlaceholder">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v10H5zM3 19h18"/></svg>
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M5 5h14v10H5zM3 19h18" />
+                    </svg>
                     <p>Click "Share Screen" below to start</p>
                   </div>
-                  <video class="stage-video hidden" id="hostVideo" autoplay playsinline muted></video>
-                  <button class="fs-minimize hidden" type="button" data-action="exit-fullscreen" aria-label="Exit fullscreen" title="Exit fullscreen">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9H5V5M15 9h4V5M9 15H5v4M15 15h4v4"/></svg>
+                  <video
+                    class="stage-video hidden"
+                    id="hostVideo"
+                    autoplay
+                    playsinline
+                    muted
+                  ></video>
+                  <button
+                    class="fs-minimize hidden"
+                    type="button"
+                    data-action="exit-fullscreen"
+                    aria-label="Exit fullscreen"
+                    title="Exit fullscreen"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M9 9H5V5M15 9h4V5M9 15H5v4M15 15h4v4" />
+                    </svg>
                   </button>
                 </div>
               </section>
@@ -223,10 +324,20 @@
                 </div>
                 <div class="chat-feed" id="chatFeedHost"></div>
                 <form class="chat-composer" data-chat-form>
-                  <label class="sr-only" for="hostMessageInput">Type a message</label>
-                  <input id="hostMessageInput" name="message" type="text" placeholder="Message…" autocomplete="off" />
+                  <label class="sr-only" for="hostMessageInput"
+                    >Type a message</label
+                  >
+                  <input
+                    id="hostMessageInput"
+                    name="message"
+                    type="text"
+                    placeholder="Message…"
+                    autocomplete="off"
+                  />
                   <button type="submit" class="send-button" aria-label="Send">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l16-8L4 4v6l10 2-10 2z"/></svg>
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M4 20l16-8L4 4v6l10 2-10 2z" />
+                    </svg>
                   </button>
                 </form>
               </aside>
@@ -234,28 +345,77 @@
 
             <footer class="room-controls">
               <div class="control-group left-group">
-                <button class="button button-primary" type="button" data-action="share-screen" id="shareScreenBtn">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v10H5zM3 19h18"/></svg>
+                <button
+                  class="button button-primary"
+                  type="button"
+                  data-action="share-screen"
+                  id="shareScreenBtn"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M5 5h14v10H5zM3 19h18" />
+                  </svg>
                   Share Screen
                 </button>
-                <button class="button button-secondary hidden" type="button" data-action="stop-sharing" id="stopSharingBtn">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M6 18L18 6"/></svg>
+                <button
+                  class="button button-secondary hidden"
+                  type="button"
+                  data-action="stop-sharing"
+                  id="stopSharingBtn"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M6 6l12 12M6 18L18 6" />
+                  </svg>
                   Stop Sharing
                 </button>
-                <button class="icon-button mute-button" type="button" data-action="toggle-mic" aria-pressed="true" title="Toggle mic">
-                  <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-mic-on">
-                    <path d="M12 15a3 3 0 0 0 3-3V7a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zM5 12a7 7 0 0 0 14 0M12 19v3"/>
+                <button
+                  class="icon-button mute-button"
+                  type="button"
+                  data-action="toggle-mic"
+                  aria-pressed="true"
+                  title="Toggle mic"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    class="icon-mic-on"
+                  >
+                    <path
+                      d="M12 15a3 3 0 0 0 3-3V7a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zM5 12a7 7 0 0 0 14 0M12 19v3"
+                    />
                   </svg>
-                  <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-mic-off">
-                    <path d="M5 5l14 14M12 15a3 3 0 0 0 3-3V7a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zM5 12a7 7 0 0 0 14 0"/>
+                  <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    class="icon-mic-off"
+                  >
+                    <path
+                      d="M5 5l14 14M12 15a3 3 0 0 0 3-3V7a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zM5 12a7 7 0 0 0 14 0"
+                    />
                   </svg>
                 </button>
-                <button class="icon-button" type="button" data-action="toggle-fullscreen" data-fullscreen-target="#hostStage" aria-pressed="false" title="Fullscreen">
-                  <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-fs-enter">
-                    <path d="M9 3H5a2 2 0 0 0-2 2v4M15 3h4a2 2 0 0 1 2 2v4M9 21H5a2 2 0 0 1-2-2v-4M15 21h4a2 2 0 0 0 2-2v-4"/>
+                <button
+                  class="icon-button"
+                  type="button"
+                  data-action="toggle-fullscreen"
+                  data-fullscreen-target="#hostStage"
+                  aria-pressed="false"
+                  title="Fullscreen"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    class="icon-fs-enter"
+                  >
+                    <path
+                      d="M9 3H5a2 2 0 0 0-2 2v4M15 3h4a2 2 0 0 1 2 2v4M9 21H5a2 2 0 0 1-2-2v-4M15 21h4a2 2 0 0 0 2-2v-4"
+                    />
                   </svg>
-                  <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-fs-exit hidden">
-                    <path d="M9 9H5V5M15 9h4V5M9 15H5v4M15 15h4v4"/>
+                  <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    class="icon-fs-exit hidden"
+                  >
+                    <path d="M9 9H5V5M15 9h4V5M9 15H5v4M15 15h4v4" />
                   </svg>
                 </button>
               </div>
@@ -272,20 +432,51 @@
                   <span class="room-brand-dot"></span>
                   WatchTogether
                 </span>
-                <span class="room-chip status-chip" id="viewerRoomChip">COZYMOON-4821</span>
+                <span class="room-chip status-chip" id="viewerRoomChip"
+                  >COZYMOON-4821</span
+                >
               </div>
               <div class="room-top-actions">
-                <span class="top-status" id="viewerStatusChip">Watching live</span>
-                <span class="avatar-bubble alt user-avatar" id="userAvatarViewer">?</span>
-                <button class="icon-button room-fullscreen" type="button" data-action="toggle-fullscreen" data-fullscreen-target=".viewer-stage" aria-pressed="false" title="Fullscreen">
-                  <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-fs-enter">
-                    <path d="M9 3H5a2 2 0 0 0-2 2v4M15 3h4a2 2 0 0 1 2 2v4M9 21H5a2 2 0 0 1-2-2v-4M15 21h4a2 2 0 0 0 2-2v-4"/>
+                <span class="top-status" id="viewerStatusChip"
+                  >Watching live</span
+                >
+                <span
+                  class="avatar-bubble alt user-avatar"
+                  id="userAvatarViewer"
+                  >?</span
+                >
+                <button
+                  class="icon-button room-fullscreen"
+                  type="button"
+                  data-action="toggle-fullscreen"
+                  data-fullscreen-target=".viewer-stage"
+                  aria-pressed="false"
+                  title="Fullscreen"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    class="icon-fs-enter"
+                  >
+                    <path
+                      d="M9 3H5a2 2 0 0 0-2 2v4M15 3h4a2 2 0 0 1 2 2v4M9 21H5a2 2 0 0 1-2-2v-4M15 21h4a2 2 0 0 0 2-2v-4"
+                    />
                   </svg>
-                  <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-fs-exit hidden">
-                    <path d="M9 9H5V5M15 9h4V5M9 15H5v4M15 15h4v4"/>
+                  <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    class="icon-fs-exit hidden"
+                  >
+                    <path d="M9 9H5V5M15 9h4V5M9 15H5v4M15 15h4v4" />
                   </svg>
                 </button>
-                <button class="ghost-button danger-ghost" type="button" data-action="leave-room">Leave</button>
+                <button
+                  class="ghost-button danger-ghost"
+                  type="button"
+                  data-action="leave-room"
+                >
+                  Leave
+                </button>
               </div>
             </header>
 
@@ -297,13 +488,28 @@
                 <div class="video-stage viewer-stage">
                   <div class="stage-placeholder" id="viewerPlaceholder">
                     <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.82v6.36a1 1 0 0 1-1.447.89L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                      <path
+                        d="M15 10l4.553-2.069A1 1 0 0 1 21 8.82v6.36a1 1 0 0 1-1.447.89L15 14M3 8a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"
+                      />
                     </svg>
                     <p>Waiting for host to share screen…</p>
                   </div>
-                  <video class="stage-video hidden" id="viewerVideo" autoplay playsinline></video>
-                  <button class="fs-minimize hidden" type="button" data-action="exit-fullscreen" aria-label="Exit fullscreen" title="Exit fullscreen">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9H5V5M15 9h4V5M9 15H5v4M15 15h4v4"/></svg>
+                  <video
+                    class="stage-video hidden"
+                    id="viewerVideo"
+                    autoplay
+                    playsinline
+                  ></video>
+                  <button
+                    class="fs-minimize hidden"
+                    type="button"
+                    data-action="exit-fullscreen"
+                    aria-label="Exit fullscreen"
+                    title="Exit fullscreen"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M9 9H5V5M15 9h4V5M9 15H5v4M15 15h4v4" />
+                    </svg>
                   </button>
                 </div>
               </section>
@@ -314,10 +520,20 @@
                 </div>
                 <div class="chat-feed" id="chatFeedViewer"></div>
                 <form class="chat-composer" data-chat-form>
-                  <label class="sr-only" for="viewerMessageInput">Type a message</label>
-                  <input id="viewerMessageInput" name="message" type="text" placeholder="Message…" autocomplete="off" />
+                  <label class="sr-only" for="viewerMessageInput"
+                    >Type a message</label
+                  >
+                  <input
+                    id="viewerMessageInput"
+                    name="message"
+                    type="text"
+                    placeholder="Message…"
+                    autocomplete="off"
+                  />
                   <button type="submit" class="send-button" aria-label="Send">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l16-8L4 4v6l10 2-10 2z"/></svg>
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M4 20l16-8L4 4v6l10 2-10 2z" />
+                    </svg>
                   </button>
                 </form>
               </aside>
@@ -325,21 +541,52 @@
 
             <footer class="viewer-footer">
               <div class="control-group left-group">
-                <button class="button button-secondary" type="button" data-action="toggle-viewer-audio">
-                  <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-unmute">
-                    <path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                <button
+                  class="button button-secondary"
+                  type="button"
+                  data-action="toggle-viewer-audio"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    class="icon-unmute"
+                  >
+                    <path
+                      d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"
+                    />
                   </svg>
-                  <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-muted hidden">
-                    <path d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6"/>
+                  <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    class="icon-muted hidden"
+                  >
+                    <path d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6" />
                   </svg>
                   <span class="audio-label">Mute</span>
                 </button>
-                <button class="icon-button" type="button" data-action="toggle-fullscreen" data-fullscreen-target=".viewer-stage" aria-pressed="false" title="Fullscreen">
-                  <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-fs-enter">
-                    <path d="M9 3H5a2 2 0 0 0-2 2v4M15 3h4a2 2 0 0 1 2 2v4M9 21H5a2 2 0 0 1-2-2v-4M15 21h4a2 2 0 0 0 2-2v-4"/>
+                <button
+                  class="icon-button"
+                  type="button"
+                  data-action="toggle-fullscreen"
+                  data-fullscreen-target=".viewer-stage"
+                  aria-pressed="false"
+                  title="Fullscreen"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    class="icon-fs-enter"
+                  >
+                    <path
+                      d="M9 3H5a2 2 0 0 0-2 2v4M15 3h4a2 2 0 0 1 2 2v4M9 21H5a2 2 0 0 1-2-2v-4M15 21h4a2 2 0 0 0 2-2v-4"
+                    />
                   </svg>
-                  <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-fs-exit hidden">
-                    <path d="M9 9H5V5M15 9h4V5M9 15H5v4M15 15h4v4"/>
+                  <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    class="icon-fs-exit hidden"
+                  >
+                    <path d="M9 9H5V5M15 9h4V5M9 15H5v4M15 15h4v4" />
                   </svg>
                 </button>
               </div>
@@ -352,16 +599,33 @@
           <div class="overlay-backdrop ended-backdrop"></div>
           <div class="modal-card ended-card">
             <div class="ended-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M6.5 5.8a7 7 0 1 0 11 0"/></svg>
+              <svg viewBox="0 0 24 24">
+                <path d="M12 3v8" />
+                <path d="M6.5 5.8a7 7 0 1 0 11 0" />
+              </svg>
             </div>
             <h2>Room ended</h2>
-            <p>The host closed the room. Start a fresh room or head back home.</p>
+            <p>
+              The host closed the room. Start a fresh room or head back home.
+            </p>
             <div class="ended-actions">
-              <button class="button button-primary wide-button" type="button" data-action="open-create">
+              <button
+                class="button button-primary wide-button"
+                type="button"
+                data-action="open-create"
+              >
                 Start a new room
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
               </button>
-              <button class="button button-secondary wide-button" type="button" data-action="go-home">Back to Home</button>
+              <button
+                class="button button-secondary wide-button"
+                type="button"
+                data-action="go-home"
+              >
+                Back to Home
+              </button>
             </div>
           </div>
         </section>
@@ -371,23 +635,39 @@
           <div class="overlay-backdrop full-backdrop"></div>
           <div class="modal-card full-card">
             <div class="full-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M8 11V8a4 4 0 0 1 8 0v3m-9 0h10v9H7z"/></svg>
+              <svg viewBox="0 0 24 24">
+                <path d="M8 11V8a4 4 0 0 1 8 0v3m-9 0h10v9H7z" />
+              </svg>
             </div>
             <h2>Room is full</h2>
-            <p>This room already has 6 viewers. Ask the host to make space or try again with a different code.</p>
-            <button class="button button-primary wide-button" type="button" data-action="go-home">Back to Home</button>
+            <p>
+              This room already has 6 viewers. Ask the host to make space or try
+              again with a different code.
+            </p>
+            <button
+              class="button button-primary wide-button"
+              type="button"
+              data-action="go-home"
+            >
+              Back to Home
+            </button>
           </div>
         </section>
-
       </main>
     </div>
 
-    <div class="connection-overlay hidden" id="connectionOverlay" aria-live="polite">
+    <div
+      class="connection-overlay hidden"
+      id="connectionOverlay"
+      aria-live="polite"
+    >
       <div class="connection-card">
         <span class="connection-spinner" aria-hidden="true"></span>
         <div>
           <strong id="connectionTitle">Reconnecting</strong>
-          <p id="connectionCopy">Keeping your room open while the connection comes back.</p>
+          <p id="connectionCopy">
+            Keeping your room open while the connection comes back.
+          </p>
         </div>
       </div>
     </div>
@@ -415,11 +695,17 @@
         }
         function tryLoad(src, ok, fail) {
           const s = document.createElement("script");
-          s.src = src; s.onload = ok; s.onerror = fail;
+          s.src = src;
+          s.onload = ok;
+          s.onerror = fail;
           document.head.appendChild(s);
         }
         tryLoad("/socket.io/socket.io.js", loadApp, function () {
-          tryLoad("http://localhost:3000/socket.io/socket.io.js", loadApp, loadApp);
+          tryLoad(
+            "http://localhost:3000/socket.io/socket.io.js",
+            loadApp,
+            loadApp,
+          );
         });
       })();
     </script>
