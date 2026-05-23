@@ -20,6 +20,7 @@ const connectionOverlay = document.getElementById("connectionOverlay");
 const connectionTitle = document.getElementById("connectionTitle");
 const connectionCopy = document.getElementById("connectionCopy");
 const viewerStatusChip = document.getElementById("viewerStatusChip");
+const whatsappShareBtn = document.getElementById("whatsappShareBtn");
 const body = document.body;
 
 // ─── Socket ───────────────────────────────────────────────────
@@ -336,6 +337,7 @@ function syncRoomCode(code) {
   if (generatedRoomCode) generatedRoomCode.textContent = code;
   if (hostRoomChip) hostRoomChip.textContent = `ROOM: ${code}`;
   if (viewerRoomChip) viewerRoomChip.textContent = `ROOM: ${code}`;
+  updateWhatsAppLink();
 }
 
 // ─── Screen routing ───────────────────────────────────────────
@@ -810,6 +812,13 @@ function addMessage(
   pEl.textContent = message;
   feed.appendChild(node);
   feed.scrollTop = feed.scrollHeight;
+}
+
+// ─── WhatsApp share ───────────────────────────────────────────
+function updateWhatsAppLink() {
+  if (!whatsappShareBtn) return;
+  const text = `Join my private WatchTogether room! Code: ${state.roomCode} — ${window.location.origin}`;
+  whatsappShareBtn.href = `https://wa.me/?text=${encodeURIComponent(text)}`;
 }
 
 // ─── Event delegation ─────────────────────────────────────────

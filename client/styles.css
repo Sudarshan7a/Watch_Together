@@ -1464,3 +1464,21 @@ input {
     display: none;
   }
 }
+
+/* ══════════════════════════════════════════════
+   WHATSAPP SHARE BUTTON
+   ══════════════════════════════════════════════ */
+.whatsapp-button {
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.22);
+  text-decoration: none;
+}
+.whatsapp-button:hover {
+  background: rgba(74, 222, 128, 0.08);
+  border-color: rgba(74, 222, 128, 0.38);
+}
+.whatsapp-button svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
