@@ -1460,6 +1460,12 @@ input {
   .chat-composer {
     padding: 6px 7px 8px;
   }
+  .quality-picker {
+    align-self: flex-end;
+  }
+  .quality-menu {
+    min-width: 132px;
+  }
   .nav-links {
     display: none;
   }
@@ -1481,4 +1487,65 @@ input {
   width: 15px;
   height: 15px;
   flex-shrink: 0;
+}
+
+/* ══════════════════════════════════════════════
+   QUALITY PICKER
+   ══════════════════════════════════════════════ */
+.quality-picker {
+  position: relative;
+}
+.quality-toggle-btn {
+  gap: 6px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  min-height: 38px;
+  padding: 0 12px;
+}
+.quality-toggle-btn svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+}
+.quality-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 30;
+  min-width: 148px;
+  margin: 0;
+  padding: 6px 0;
+  list-style: none;
+  background: var(--surface-3);
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(16px);
+  overflow-y: auto;
+  max-width: calc(100vw - 24px);
+}
+.quality-menu li {
+  padding: 9px 14px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  color: var(--text-soft);
+  cursor: pointer;
+  transition:
+    background 120ms,
+    color 120ms;
+}
+.quality-menu li:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+}
+.quality-menu li[aria-selected="true"] {
+  color: var(--accent-2);
+  background: var(--accent-veil);
 }

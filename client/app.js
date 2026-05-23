@@ -21,6 +21,9 @@ const connectionTitle = document.getElementById("connectionTitle");
 const connectionCopy = document.getElementById("connectionCopy");
 const viewerStatusChip = document.getElementById("viewerStatusChip");
 const whatsappShareBtn = document.getElementById("whatsappShareBtn");
+const qualityLabel = document.getElementById("qualityLabel");
+const qualityMenu = document.getElementById("qualityMenu");
+const qualityPicker = document.getElementById("qualityPicker");
 const body = document.body;
 
 // ─── Socket ───────────────────────────────────────────────────
@@ -44,6 +47,7 @@ const state = {
   role: "",
   memberId: "",
   joinedRoom: false,
+  quality: { label: "Source", width: 0, height: 0, fps: 0 },
 };
 
 let localStream = null;
@@ -647,10 +651,11 @@ function toggleHostShare() {
     if (hostPlaceholder) hostPlaceholder.style.display = "";
     if (shareScreenBtn) shareScreenBtn.classList.remove("hidden");
     if (stopSharingBtn) stopSharingBtn.classList.add("hidden");
+    if (qualityLabel) qualityLabel.textContent = state.quality.label;
   } else {
     navigator.mediaDevices
       .getDisplayMedia({
-        video: { width: 1920, height: 1080, frameRate: 30 },
+        video: true,
         audio: true,
       })
       .then((stream) => {
@@ -666,6 +671,12 @@ function toggleHostShare() {
         Object.values(peerConnections).forEach((pc) => {
           stream.getTracks().forEach((t) => pc.addTrack(t, stream));
         });
+
+        if (state.quality.width && state.quality.height && state.quality.fps) {
+          applyCurrentStreamQuality().catch((err) =>
+            console.warn("Quality apply failed:", err),
+          );
+        }
 
         state.sharing = true;
         stream.getVideoTracks()[0].onended = () => {
@@ -696,6 +707,101 @@ async function toggleMic(button) {
     });
   syncMicButtonUI(button);
 }
+
+async function applyCurrentStreamQuality() {
+  if (
+    !localStream ||
+    !state.quality.width ||
+    !state.quality.height ||
+    !state.quality.fps
+  )
+    return;
+
+  const videoTrack = localStream.getVideoTracks()[0];
+  if (!videoTrack?.applyConstraints) return;
+
+  await videoTrack.applyConstraints({
+    width: { ideal: state.quality.width },
+    height: { ideal: state.quality.height },
+    frameRate: { ideal: state.quality.fps },
+  });
+}
+
+// ─── Quality picker ───────────────────────────────────────────
+function openQualityMenu() {
+  if (!qualityMenu) return;
+  positionQualityMenu();
+  qualityMenu.classList.remove("hidden");
+  qualityPicker
+    ?.querySelector('[data-action="open-quality"]')
+    ?.setAttribute("aria-expanded", "true");
+}
+
+function closeQualityMenu() {
+  if (!qualityMenu) return;
+  qualityMenu.classList.add("hidden");
+  qualityMenu.style.top = "";
+  qualityMenu.style.bottom = "";
+  qualityMenu.style.left = "";
+  qualityMenu.style.right = "";
+  qualityMenu.style.maxHeight = "";
+  qualityMenu.style.maxWidth = "";
+  qualityPicker
+    ?.querySelector('[data-action="open-quality"]')
+    ?.setAttribute("aria-expanded", "false");
+}
+
+function positionQualityMenu() {
+  if (!qualityMenu || !qualityPicker) return;
+
+  const trigger =
+    qualityPicker.querySelector('[data-action="open-quality"]') ||
+    qualityPicker;
+  const rect = trigger.getBoundingClientRect();
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const spaceAbove = rect.top;
+  const spaceBelow = viewportHeight - rect.bottom;
+  const openUp = spaceAbove >= spaceBelow;
+  const availableSpace = Math.max(0, (openUp ? spaceAbove : spaceBelow) - 12);
+
+  qualityMenu.style.top = openUp ? "auto" : "calc(100% + 8px)";
+  qualityMenu.style.bottom = openUp ? "calc(100% + 8px)" : "auto";
+  qualityMenu.style.left = "0";
+  qualityMenu.style.right = "auto";
+  qualityMenu.style.maxHeight = `${availableSpace}px`;
+  qualityMenu.style.maxWidth = `${Math.max(0, viewportWidth - 24)}px`;
+
+  if (rect.right + 180 > viewportWidth) {
+    qualityMenu.style.left = "auto";
+    qualityMenu.style.right = "0";
+  }
+}
+
+function setQuality(label, width, height, fps) {
+  state.quality = { label, width, height, fps };
+  if (qualityLabel) qualityLabel.textContent = label;
+  // Update aria-selected on menu items
+  qualityMenu?.querySelectorAll("[data-action='set-quality']").forEach((li) => {
+    li.setAttribute(
+      "aria-selected",
+      li.dataset.quality === label ? "true" : "false",
+    );
+  });
+  if (state.sharing && localStream) {
+    applyCurrentStreamQuality().catch((err) =>
+      console.warn("Quality apply failed:", err),
+    );
+  }
+  closeQualityMenu();
+}
+
+// Close quality menu when clicking outside
+document.addEventListener("click", (e) => {
+  if (qualityPicker && !qualityPicker.contains(e.target)) {
+    closeQualityMenu();
+  }
+});
 
 // ─── Viewer audio ─────────────────────────────────────────────
 function toggleViewerAudio(button) {
@@ -925,6 +1031,18 @@ document.addEventListener("click", async (e) => {
       clearRoomSession();
       setScreen("landing");
       break;
+
+    case "open-quality":
+      qualityMenu?.classList.contains("hidden")
+        ? openQualityMenu()
+        : closeQualityMenu();
+      break;
+
+    case "set-quality": {
+      const { quality, width, height, fps } = button.dataset;
+      setQuality(quality, Number(width), Number(height), Number(fps));
+      break;
+    }
   }
 });
 
@@ -976,6 +1094,10 @@ roomCodeInput?.addEventListener("input", () => {
 // ─── Hash routing ─────────────────────────────────────────────
 window.addEventListener("hashchange", () => setScreen(getActiveScreen()));
 document.addEventListener("fullscreenchange", syncFullscreenButtons);
+window.addEventListener("resize", () => {
+  if (!qualityMenu || qualityMenu.classList.contains("hidden")) return;
+  positionQualityMenu();
+});
 
 // ─── Init ─────────────────────────────────────────────────────
 const savedName = window.localStorage?.getItem("watchtogether-name");
@@ -995,6 +1117,7 @@ if (savedRoomSession) {
 }
 
 syncMicButtonUI(document.querySelector('[data-action="toggle-mic"]'));
+if (qualityLabel) qualityLabel.textContent = state.quality.label;
 syncFullscreenButtons();
 if (!restoreSavedRoomIfNeeded()) {
   setScreen(getActiveScreen());
