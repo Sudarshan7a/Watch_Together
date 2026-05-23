@@ -1524,18 +1524,17 @@ input {
 }
 
 /* ══════════════════════════════════════════════
-   WHATSAPP SHARE BUTTON
+   SHARE BUTTON
    ══════════════════════════════════════════════ */
-.whatsapp-button {
-  color: #4ade80;
-  border-color: rgba(74, 222, 128, 0.22);
-  text-decoration: none;
+.share-button {
+  color: var(--gold);
+  border-color: rgba(240, 180, 41, 0.22);
 }
-.whatsapp-button:hover {
-  background: rgba(74, 222, 128, 0.08);
-  border-color: rgba(74, 222, 128, 0.38);
+.share-button:hover {
+  background: rgba(240, 180, 41, 0.08);
+  border-color: rgba(240, 180, 41, 0.38);
 }
-.whatsapp-button svg {
+.share-button svg {
   width: 15px;
   height: 15px;
   flex-shrink: 0;

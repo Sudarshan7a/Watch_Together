@@ -20,7 +20,6 @@ const connectionOverlay = document.getElementById("connectionOverlay");
 const connectionTitle = document.getElementById("connectionTitle");
 const connectionCopy = document.getElementById("connectionCopy");
 const viewerStatusChip = document.getElementById("viewerStatusChip");
-const whatsappShareBtn = document.getElementById("whatsappShareBtn");
 const qualityLabel = document.getElementById("qualityLabel");
 const qualityMenu = document.getElementById("qualityMenu");
 const qualityPicker = document.getElementById("qualityPicker");
@@ -473,7 +472,6 @@ function syncRoomCode(code) {
   if (generatedRoomCode) generatedRoomCode.textContent = code;
   if (hostRoomChip) hostRoomChip.textContent = `ROOM: ${code}`;
   if (viewerRoomChip) viewerRoomChip.textContent = `ROOM: ${code}`;
-  updateWhatsAppLink();
 }
 
 // ─── Screen routing ───────────────────────────────────────────
@@ -1077,12 +1075,7 @@ function addMessage(
   feed.scrollTop = feed.scrollHeight;
 }
 
-// ─── WhatsApp share ───────────────────────────────────────────
-function updateWhatsAppLink() {
-  if (!whatsappShareBtn) return;
-  const text = `Join my private WatchTogether room! Code: ${state.roomCode} — ${window.location.origin}`;
-  whatsappShareBtn.href = `https://wa.me/?text=${encodeURIComponent(text)}`;
-}
+// ─── Share room native / copy fallback ────────────────────────
 
 // ─── Event delegation ─────────────────────────────────────────
 document.addEventListener("click", async (e) => {
@@ -1135,6 +1128,38 @@ document.addEventListener("click", async (e) => {
         copyLbl.textContent = "Copied!";
         setTimeout(() => {
           copyLbl.textContent = "Copy code";
+        }, 1400);
+      }
+      break;
+    }
+
+    case "share-room": {
+      const shareData = {
+        title: "WatchTogether",
+        text: `Join my private WatchTogether room! Code: ${state.roomCode}`,
+        url: window.location.origin,
+      };
+      if (
+        navigator.share &&
+        navigator.canShare &&
+        navigator.canShare(shareData)
+      ) {
+        try {
+          await navigator.share(shareData);
+        } catch (err) {
+          if (err.name !== "AbortError") {
+            console.warn("Share failed:", err);
+          }
+        }
+      } else {
+        // Fallback: Copy share message to clipboard
+        const fullMessage = `${shareData.text} — ${shareData.url}`;
+        await navigator.clipboard?.writeText(fullMessage);
+        const shareBtn = document.getElementById("shareRoomBtn");
+        const origContent = shareBtn.innerHTML;
+        shareBtn.textContent = "Copied share text!";
+        setTimeout(() => {
+          shareBtn.innerHTML = origContent;
         }, 1400);
       }
       break;
