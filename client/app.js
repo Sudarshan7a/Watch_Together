@@ -32,7 +32,15 @@ const socketUrl = window.__WT_SOCKET_URL || (
     : window.location.origin
 );
 const socket = window.io
-  ? window.io(socketUrl, { transports: ["websocket", "polling"] })
+  ? window.io(socketUrl, {
+      transports: ["websocket", "polling"],
+      // Retry forever — Render free tier can take up to 60 s to cold-start.
+      // Without these settings socket.io gives up after a few attempts.
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,       // start at 1 s
+      reconnectionDelayMax: 8000,    // cap at 8 s between retries
+      timeout: 20000,                // 20 s connection timeout per attempt
+    })
   : null;
 
 if (!socket) {
@@ -469,7 +477,10 @@ if (socket) {
   socket.on("connect_error", () => {
     state.socketConnected = false;
     delete body.dataset.socketConnected;
-    showConnectionOverlay("Server offline", "Could not connect to the room server.");
+    showConnectionOverlay(
+      "Waking up server…",
+      "The server is starting up — this takes up to 60 s on the free tier. Hang tight, no need to refresh."
+    );
   });
   socket.on("disconnect", () => {
     state.socketConnected = false;
