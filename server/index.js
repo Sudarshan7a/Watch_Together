@@ -1,5 +1,6 @@
 import express from "express";
 import http from "http";
+import https from "https";
 import path from "path";
 import { fileURLToPath } from "url";
 import { Server } from "socket.io";
@@ -221,4 +222,23 @@ const PORT = process.env.PORT || 3000;
 
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+
+  // ── Keep-alive self-ping (Render free tier spins down after inactivity) ──
+  // Render sets RENDER_EXTERNAL_URL automatically. We ping our own /health
+  // endpoint every 30 s so the service never goes idle during a live session.
+  const renderUrl = process.env.RENDER_EXTERNAL_URL;
+  if (renderUrl) {
+    const pingUrl = `${renderUrl}/health`;
+    console.log(`Keep-alive enabled: pinging ${pingUrl} every 30 s`);
+    setInterval(() => {
+      const mod = pingUrl.startsWith("https") ? https : http;
+      const req = mod.get(pingUrl, (res) => {
+        // Drain the response so the socket is freed
+        res.resume();
+      });
+      req.on("error", (err) => {
+        console.warn("Keep-alive ping failed:", err.message);
+      });
+    }, 30_000);
+  }
 });
