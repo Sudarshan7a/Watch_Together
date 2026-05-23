@@ -15,6 +15,11 @@ const shareScreenBtn = document.getElementById("shareScreenBtn");
 const stopSharingBtn = document.getElementById("stopSharingBtn");
 const hostPlaceholder   = document.getElementById("hostPlaceholder");
 const viewerPlaceholder = document.getElementById("viewerPlaceholder");
+const roomCodeError = document.getElementById("roomCodeError");
+const connectionOverlay = document.getElementById("connectionOverlay");
+const connectionTitle = document.getElementById("connectionTitle");
+const connectionCopy = document.getElementById("connectionCopy");
+const viewerStatusChip = document.getElementById("viewerStatusChip");
 const body = document.body;
 
 // ─── Socket ───────────────────────────────────────────────────
@@ -34,12 +39,113 @@ const state = {
   socketConnected: false,
   displayName: "",
   pendingAction: null,
+  role: "",
+  memberId: "",
+  joinedRoom: false,
 };
 
 let localStream = null;
 let micStream   = null;
 const peerConnections = {};
 const dataChannels    = {};
+const ROOM_SESSION_KEY = "watchtogether-room-session";
+const MEMBER_ID_KEY = "watchtogether-member-id";
+const ROOM_COOKIE_NAME = "watchtogether_room";
+
+function getCookie(name) {
+  const prefix = `${encodeURIComponent(name)}=`;
+  return document.cookie
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(prefix))
+    ?.slice(prefix.length) || "";
+}
+
+function setCookie(name, value, maxAgeSeconds) {
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${encodeURIComponent(name)}=${encodeURIComponent(value)}; Max-Age=${maxAgeSeconds}; Path=/; SameSite=Lax${secure}`;
+}
+
+function getMemberId() {
+  let id = window.localStorage?.getItem(MEMBER_ID_KEY) || getCookie("watchtogether_member");
+  if (!id) {
+    id = window.crypto?.randomUUID?.() || `member-${Date.now()}-${cryptoRandInt(1000000)}`;
+  }
+  window.localStorage?.setItem(MEMBER_ID_KEY, id);
+  setCookie("watchtogether_member", id, 60 * 60 * 24 * 365);
+  return id;
+}
+
+function readSavedRoomSession() {
+  const raw = window.localStorage?.getItem(ROOM_SESSION_KEY) || getCookie(ROOM_COOKIE_NAME);
+  if (!raw) return null;
+
+  try {
+    const session = JSON.parse(decodeURIComponent(raw));
+    const roomCode = normalizeCode(session.roomCode || "");
+    const role = session.role === "host" ? "host" : session.role === "viewer" ? "viewer" : "";
+    if (!roomCode || !role) return null;
+    return { roomCode, role, memberId: session.memberId || getMemberId() };
+  } catch (err) {
+    return null;
+  }
+}
+
+function saveRoomSession(role) {
+  if (!state.roomCode || !role) return;
+  const session = { roomCode: state.roomCode, role, memberId: state.memberId };
+  const raw = JSON.stringify(session);
+  window.localStorage?.setItem(ROOM_SESSION_KEY, raw);
+  setCookie(ROOM_COOKIE_NAME, raw, 60 * 60 * 24 * 14);
+  state.role = role;
+  state.joinedRoom = true;
+}
+
+function clearRoomSession() {
+  window.localStorage?.removeItem(ROOM_SESSION_KEY);
+  setCookie(ROOM_COOKIE_NAME, "", 0);
+  state.role = "";
+  state.joinedRoom = false;
+}
+
+function showConnectionOverlay(title = "Reconnecting", copy = "Keeping your room open while the connection comes back.") {
+  if (!connectionOverlay) return;
+  if (connectionTitle) connectionTitle.textContent = title;
+  if (connectionCopy) connectionCopy.textContent = copy;
+  connectionOverlay.classList.remove("hidden");
+}
+
+function hideConnectionOverlay() {
+  connectionOverlay?.classList.add("hidden");
+}
+
+function setRoomCodeError(message = "") {
+  roomCodeError?.classList.toggle("hidden", !message);
+  if (roomCodeError) roomCodeError.textContent = message;
+  document.querySelector(".code-field")?.classList.toggle("has-error", !!message);
+}
+
+function validateRoomCodeForJoin(code) {
+  if (!code) return "Enter a room code first.";
+  if (!/^[A-Z0-9]+-[0-9]{4}$/.test(code)) {
+    return "Use the full room code, like COZYMOON-4821.";
+  }
+  return "";
+}
+
+function setViewerWaitingForHost(isWaiting) {
+  if (viewerStatusChip) {
+    viewerStatusChip.textContent = isWaiting ? "Host reconnecting" : "Watching live";
+  }
+
+  if (!viewerPlaceholder || viewerVideo?.srcObject) return;
+  const text = viewerPlaceholder.querySelector("p");
+  if (text) {
+    text.textContent = isWaiting
+      ? "Host is reconnecting..."
+      : "Waiting for host to share screen...";
+  }
+}
 
 function syncMicButtonUI(button) {
   if (!button) return;
@@ -118,15 +224,19 @@ function continuePendingAction() {
   const action = state.pendingAction;
   state.pendingAction = null;
   if (action === "open-create") {
+    clearRoomSession();
     syncRoomCode(randomRoomCode());
     setScreen("create");
   } else if (action === "go-host") {
-    emitJoinRoom("host");
+    joinCurrentRoom("host");
     setScreen("host");
   } else if (action === "join-room") {
     const code = normalizeCode(roomCodeInput?.value.trim() || "") || state.roomCode;
+    const error = validateRoomCodeForJoin(code);
+    if (error) { setRoomCodeError(error); roomCodeInput?.focus(); return; }
+    setRoomCodeError();
     syncRoomCode(code);
-    emitJoinRoom("viewer");
+    joinCurrentRoom("viewer");
     setScreen("viewer");
   }
 }
@@ -149,6 +259,13 @@ function syncRoomCode(code) {
 
 // ─── Screen routing ───────────────────────────────────────────
 function setScreen(name) {
+  if ((name === "host" || name === "viewer") && !state.joinedRoom) {
+    const savedSession = readSavedRoomSession();
+    if (!savedSession || savedSession.role !== name) {
+      name = name === "viewer" ? "join" : "landing";
+    }
+  }
+
   screens.forEach((s) => s.classList.toggle("screen-active", s.dataset.screen === name));
   window.location.hash = name;
   body.className = `route-${name}`;
@@ -172,20 +289,67 @@ function getActiveScreen() {
 // ─── Socket ───────────────────────────────────────────────────
 function emitJoinRoom(role) {
   if (!socket) return;
-  socket.emit("join-room", { roomCode: state.roomCode, role, name: state.displayName });
+  socket.emit("join-room", {
+    roomCode: state.roomCode,
+    role,
+    name: state.displayName,
+    memberId: state.memberId,
+  });
+}
+
+function joinCurrentRoom(role) {
+  saveRoomSession(role);
+  emitJoinRoom(role);
+}
+
+function restoreSavedRoomIfNeeded() {
+  const route = getActiveScreen();
+  if (route !== "host" && route !== "viewer") return false;
+
+  const savedSession = readSavedRoomSession();
+  if (!savedSession || savedSession.role !== route) {
+    clearRoomSession();
+    setScreen(route === "viewer" ? "join" : "landing");
+    return false;
+  }
+
+  state.memberId = savedSession.memberId;
+  syncRoomCode(savedSession.roomCode);
+  saveRoomSession(savedSession.role);
+  if (socket?.connected) {
+    emitJoinRoom(savedSession.role);
+  } else {
+    showConnectionOverlay();
+  }
+  setScreen(savedSession.role);
+  return true;
 }
 
 if (socket) {
   socket.on("connect", () => {
     state.socketConnected = true;
     body.dataset.socketConnected = "true";
+    hideConnectionOverlay();
+    restoreSavedRoomIfNeeded();
   });
   socket.on("disconnect", () => {
     state.socketConnected = false;
     delete body.dataset.socketConnected;
+    if (state.joinedRoom) showConnectionOverlay();
   });
-  socket.on("room-full",  () => setScreen("full"));
-  socket.on("room-ended", () => { cleanupRoom(); setScreen("ended"); });
+  socket.on("room-full",  () => { cleanupRoom(); clearRoomSession(); setScreen("full"); });
+  socket.on("room-ended", () => { hideConnectionOverlay(); cleanupRoom(); clearRoomSession(); setScreen("ended"); });
+  socket.on("room-unavailable", () => { hideConnectionOverlay(); cleanupRoom(); clearRoomSession(); setScreen("ended"); });
+  socket.on("host-reconnecting", () => {
+    if (getActiveScreen() === "viewer") {
+      setViewerWaitingForHost(true);
+      showConnectionOverlay("Host reconnecting", "The room will stay open for a short moment.");
+    }
+  });
+  socket.on("host-reconnected", () => {
+    setViewerWaitingForHost(false);
+    hideConnectionOverlay();
+  });
 
   socket.on("room-users", ({ users }) => {
     users.forEach((id) => createPeerConnection(id, false));
@@ -484,26 +648,31 @@ document.addEventListener("click", async (e) => {
   switch (action) {
     case "open-create":
       if (!ensureDisplayName("open-create")) return;
+      clearRoomSession();
       syncRoomCode(randomRoomCode());
       setScreen("create");
       break;
 
     case "go-join":
+      setRoomCodeError();
       setScreen("join");
       roomCodeInput?.focus();
       break;
 
     case "go-host":
       if (!ensureDisplayName("go-host")) return;
-      emitJoinRoom("host");
+      joinCurrentRoom("host");
       setScreen("host");
       break;
 
     case "join-room": {
       if (!ensureDisplayName("join-room")) return;
       const code = normalizeCode(roomCodeInput?.value.trim() || "") || state.roomCode;
+      const error = validateRoomCodeForJoin(code);
+      if (error) { setRoomCodeError(error); roomCodeInput?.focus(); return; }
+      setRoomCodeError();
       syncRoomCode(code);
-      emitJoinRoom("viewer");
+      joinCurrentRoom("viewer");
       setScreen("viewer");
       break;
     }
@@ -535,11 +704,14 @@ document.addEventListener("click", async (e) => {
     case "end-room":
       if (socket) socket.emit("end-room");
       cleanupRoom();
+      clearRoomSession();
       setScreen("ended");
       break;
 
     case "leave-room":
+      if (socket) socket.emit("leave-room");
       cleanupRoom();
+      clearRoomSession();
       setScreen("landing");
       break;
 
@@ -558,7 +730,9 @@ document.addEventListener("click", async (e) => {
       break;
 
     case "go-home":
+      if (state.joinedRoom && socket) socket.emit("leave-room");
       cleanupRoom();
+      clearRoomSession();
       setScreen("landing");
       break;
   }
@@ -599,6 +773,7 @@ document.querySelectorAll("[data-name-form]").forEach((form) => {
 // ─── Room code input normalizer ───────────────────────────────
 roomCodeInput?.addEventListener("input", () => {
   roomCodeInput.value = normalizeCode(roomCodeInput.value);
+  if (roomCodeInput.value) setRoomCodeError();
 });
 
 // ─── Hash routing ─────────────────────────────────────────────
@@ -612,7 +787,18 @@ if (savedName) {
   if (nameInput) nameInput.value = savedName;
 }
 
-syncRoomCode(randomRoomCode());
+state.memberId = getMemberId();
+
+const savedRoomSession = readSavedRoomSession();
+if (savedRoomSession) {
+  state.memberId = savedRoomSession.memberId;
+  syncRoomCode(savedRoomSession.roomCode);
+} else {
+  syncRoomCode(randomRoomCode());
+}
+
 syncMicButtonUI(document.querySelector('[data-action="toggle-mic"]'));
 syncFullscreenButtons();
-setScreen(getActiveScreen());
+if (!restoreSavedRoomIfNeeded()) {
+  setScreen(getActiveScreen());
+}
