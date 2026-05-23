@@ -1617,6 +1617,7 @@ input {
 .audio-control-wrapper .mute-toggle-btn {
   border: none;
   background: transparent;
+  min-width: 120px;
 }
 .audio-control-wrapper .mute-toggle-btn:hover {
   background: rgba(255, 255, 255, 0.04);
