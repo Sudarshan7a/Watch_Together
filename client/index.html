@@ -770,11 +770,24 @@
           s.onerror = fail;
           document.head.appendChild(s);
         }
+        // Fallback chain: relative path -> local port 3000 -> live Render server -> CDN -> load app
         tryLoad("/socket.io/socket.io.js", loadApp, function () {
           tryLoad(
             "http://localhost:3000/socket.io/socket.io.js",
             loadApp,
-            loadApp,
+            function () {
+              tryLoad(
+                "https://watch-together-qk70.onrender.com/socket.io/socket.io.js",
+                loadApp,
+                function () {
+                  tryLoad(
+                    "https://cdn.socket.io/4.8.3/socket.io.min.js",
+                    loadApp,
+                    loadApp
+                  );
+                }
+              );
+            }
           );
         });
       })();

@@ -27,9 +27,13 @@ const body = document.body;
 
 // ─── Socket ───────────────────────────────────────────────────
 const socketUrl = window.__WT_SOCKET_URL || (
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1" ||
   window.location.protocol === "file:"
     ? "http://localhost:3000"
-    : window.location.origin
+    : (window.location.hostname.endsWith(".github.io")
+        ? "https://watch-together-qk70.onrender.com"
+        : window.location.origin)
 );
 const socket = window.io
   ? window.io(socketUrl, {
