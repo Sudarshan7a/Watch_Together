@@ -37,7 +37,10 @@ const HOST_RECONNECT_GRACE_MS = 30000;
 const ROOM_CODE_PATTERN = /^[A-Z0-9]+-[0-9]{4}$/;
 
 function normalizeRoomCode(value = "") {
-  return String(value).toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 16);
+  return String(value)
+    .toUpperCase()
+    .replace(/[^A-Z0-9-]/g, "")
+    .slice(0, 16);
 }
 
 function createRoom() {
@@ -47,19 +50,37 @@ function createRoom() {
   };
 }
 
+function getSocketLabel(socket, fallback = "someone") {
+  return (
+    socket.displayName ||
+    socket.handshake.auth?.name?.trim() ||
+    socket.memberId ||
+    fallback
+  );
+}
+
 function getActiveSocketIds(roomCode, exceptSocketId = "") {
   const room = rooms[roomCode];
   if (!room) return [];
 
   return Array.from(room.members.values())
     .map((member) => member.socketId)
-    .filter((socketId) => socketId && socketId !== exceptSocketId && io.sockets.sockets.has(socketId));
+    .filter(
+      (socketId) =>
+        socketId &&
+        socketId !== exceptSocketId &&
+        io.sockets.sockets.has(socketId),
+    );
 }
 
 function getHostMember(roomCode) {
   const room = rooms[roomCode];
   if (!room) return null;
-  return Array.from(room.members.values()).find((member) => member.role === "host") || null;
+  return (
+    Array.from(room.members.values()).find(
+      (member) => member.role === "host",
+    ) || null
+  );
 }
 
 function endRoom(roomCode, reason = "ended") {
@@ -116,9 +137,10 @@ function removeSocketFromRoom(socket, intentional = false) {
 }
 
 io.on("connection", (socket) => {
-  console.log("someone connected:", socket.id);
+  socket.displayName = socket.handshake.auth?.name?.trim() || "";
+  console.log(`${getSocketLabel(socket, socket.id)} connected: ${socket.id}`);
 
-  socket.on("join-room", ({ roomCode, role, memberId }) => {
+  socket.on("join-room", ({ roomCode, role, memberId, name }) => {
     roomCode = normalizeRoomCode(roomCode);
 
     if (!roomCode || (role !== "host" && role !== "viewer") || !memberId) {
@@ -160,16 +182,27 @@ io.on("connection", (socket) => {
       socket.to(roomCode).emit("host-reconnected");
     }
 
+    const displayName =
+      String(name || socket.displayName || memberId).trim() || memberId;
+    socket.displayName = displayName;
+
     socket.roomCode = roomCode;
     socket.role = role;
     socket.memberId = memberId;
 
     const previousSocketId = existingMember?.socketId || "";
     const isReconnect = !!existingMember;
-    room.members.set(memberId, { memberId, socketId: socket.id, role });
+    room.members.set(memberId, {
+      memberId,
+      socketId: socket.id,
+      role,
+      displayName,
+    });
     socket.join(roomCode);
 
-    console.log(`${role} joined room ${roomCode} - total: ${room.members.size}`);
+    console.log(
+      `${displayName} joined room ${roomCode} as ${role} - total: ${room.members.size}`,
+    );
 
     if (!isReconnect || previousSocketId !== socket.id) {
       socket.to(roomCode).emit("user-joined", {
@@ -214,7 +247,9 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     removeSocketFromRoom(socket, false);
-    console.log("someone disconnected:", socket.id);
+    console.log(
+      `${getSocketLabel(socket, socket.id)} disconnected: ${socket.id}`,
+    );
   });
 });
 

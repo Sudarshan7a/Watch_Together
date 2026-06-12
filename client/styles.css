@@ -61,10 +61,14 @@
   box-sizing: border-box;
 }
 html {
+  height: 100%;
   scroll-behavior: smooth;
+  overflow: hidden;
+  scrollbar-width: none;
 }
 
 body {
+  height: 100%;
   margin: 0;
   min-height: 100vh;
   background:
@@ -87,6 +91,16 @@ body {
   color: var(--text);
   font-family: "Inter", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  -ms-overflow-style: none;
+  overscroll-behavior: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 a {

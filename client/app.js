@@ -26,24 +26,27 @@ const qualityPicker = document.getElementById("qualityPicker");
 const body = document.body;
 
 // ─── Socket ───────────────────────────────────────────────────
-const socketUrl = window.__WT_SOCKET_URL || (
-  window.location.hostname === "localhost" ||
+const socketUrl =
+  window.__WT_SOCKET_URL ||
+  (window.location.hostname === "localhost" ||
   window.location.hostname === "127.0.0.1" ||
   window.location.protocol === "file:"
     ? "http://localhost:3000"
-    : (window.location.hostname.endsWith(".github.io")
-        ? "https://watch-together-qk70.onrender.com"
-        : window.location.origin)
-);
+    : window.location.hostname.endsWith(".github.io")
+      ? "https://watch-together-qk70.onrender.com"
+      : window.location.origin);
 const socket = window.io
   ? window.io(socketUrl, {
+      auth: {
+        name: window.localStorage?.getItem("watchtogether-name") || "",
+      },
       transports: ["websocket", "polling"],
       // Retry forever — Render free tier can take up to 60 s to cold-start.
       // Without these settings socket.io gives up after a few attempts.
       reconnectionAttempts: Infinity,
-      reconnectionDelay: 1000,       // start at 1 s
-      reconnectionDelayMax: 8000,    // cap at 8 s between retries
-      timeout: 20000,                // 20 s connection timeout per attempt
+      reconnectionDelay: 1000, // start at 1 s
+      reconnectionDelayMax: 8000, // cap at 8 s between retries
+      timeout: 20000, // 20 s connection timeout per attempt
     })
   : null;
 
@@ -584,7 +587,7 @@ if (socket) {
     delete body.dataset.socketConnected;
     showConnectionOverlay(
       "Waking up server…",
-      "The server is starting up — this takes up to 60 s on the free tier. Hang tight, no need to refresh."
+      "The server is starting up — this takes up to 60 s on the free tier. Hang tight, no need to refresh.",
     );
   });
   socket.on("disconnect", () => {
@@ -655,7 +658,11 @@ if (socket) {
     try {
       if (signal.type === "offer") {
         // Only accept offer if we are not currently mid-negotiation as offerer
-        if (pc.signalingState !== "stable" && pc.signalingState !== "have-remote-offer") return;
+        if (
+          pc.signalingState !== "stable" &&
+          pc.signalingState !== "have-remote-offer"
+        )
+          return;
         await pc.setRemoteDescription(new RTCSessionDescription(signal));
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
@@ -731,7 +738,6 @@ function createPeerConnection(userId, isInitiator) {
       });
     }
   };
-
 
   const handleConnectionDrop = () => {
     if (peerConnections[userId] !== pc) return;
@@ -845,9 +851,9 @@ function cleanupRoom() {
   if (stopSharingBtn) stopSharingBtn.classList.add("hidden");
 
   state.sharing = false;
-  state.micMuted = true;  // mic starts muted — match the initial state
+  state.micMuted = true; // mic starts muted — match the initial state
   state.viewerAudioMuted = false;
-  syncMicButtonUI();       // reset mic button icon/label after leaving room
+  syncMicButtonUI(); // reset mic button icon/label after leaving room
 }
 
 // ─── Screen sharing ───────────────────────────────────────────
@@ -863,7 +869,8 @@ function toggleHostShare() {
     if (hostPlaceholder) hostPlaceholder.style.display = "";
     if (shareScreenBtn) shareScreenBtn.classList.remove("hidden");
     if (stopSharingBtn) stopSharingBtn.classList.add("hidden");
-    if (qualityLabel) qualityLabel.textContent = `Quality: ${state.quality.label}`;
+    if (qualityLabel)
+      qualityLabel.textContent = `Quality: ${state.quality.label}`;
   } else {
     navigator.mediaDevices
       .getDisplayMedia({
@@ -933,8 +940,6 @@ async function toggleMic(button) {
   }
   syncMicButtonUI();
 }
-
-
 
 async function applyCurrentStreamQuality() {
   if (!localStream) return;
@@ -1030,18 +1035,27 @@ document.addEventListener("click", (e) => {
 
 // ─── Viewer audio ─────────────────────────────────────────────
 function syncViewerAudioUI(button) {
-  if (!button) button = document.querySelector('[data-action="toggle-viewer-audio"]');
+  if (!button)
+    button = document.querySelector('[data-action="toggle-viewer-audio"]');
   if (!button) return;
   button
     .querySelector(".icon-unmute")
-    ?.classList.toggle("hidden", state.viewerAudioMuted || state.viewerVolume === 0);
+    ?.classList.toggle(
+      "hidden",
+      state.viewerAudioMuted || state.viewerVolume === 0,
+    );
   button
     .querySelector(".icon-muted")
-    ?.classList.toggle("hidden", !(state.viewerAudioMuted || state.viewerVolume === 0));
+    ?.classList.toggle(
+      "hidden",
+      !(state.viewerAudioMuted || state.viewerVolume === 0),
+    );
   const label = button.querySelector(".audio-label");
-  if (label) label.textContent = state.viewerAudioMuted || state.viewerVolume === 0 ? "Unmute" : "Mute";
-  
-  const slider = document.querySelector('.volume-slider');
+  if (label)
+    label.textContent =
+      state.viewerAudioMuted || state.viewerVolume === 0 ? "Unmute" : "Mute";
+
+  const slider = document.querySelector(".volume-slider");
   if (slider) {
     slider.value = state.viewerAudioMuted ? 0 : state.viewerVolume;
   }
