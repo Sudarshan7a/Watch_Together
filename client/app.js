@@ -158,6 +158,7 @@ const wakeOverlay = document.getElementById("wakeOverlay");
 const wakeProgressBar = document.getElementById("wakeProgressBar");
 let wakeTimer = null;
 let wakeProgressInterval = null;
+let createTimerInterval = null;
 
 function showWakeOverlay() {
   if (!wakeOverlay) return;
@@ -545,6 +546,7 @@ function continuePendingAction() {
     clearRoomSession();
     syncRoomCode(randomRoomCode());
     setScreen("create");
+    startCreateExpiryTimer();
   } else if (action === "go-host") {
     joinCurrentRoom("host");
     setScreen("host");
@@ -588,8 +590,48 @@ function syncRoomCode(code) {
   if (viewerRoomChip) viewerRoomChip.textContent = `ROOM: ${code}`;
 }
 
+// ─── Room Expiration Timer ────────────────────────────────────
+function startCreateExpiryTimer() {
+  if (createTimerInterval) clearInterval(createTimerInterval);
+  const timerEl = document.getElementById("roomExpiryTimer");
+  if (!timerEl) return;
+
+  const startBtn = document.querySelector('[data-action="go-host"]');
+  if (startBtn) {
+    startBtn.disabled = false;
+    startBtn.innerHTML = `Enter room <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6" /></svg>`;
+  }
+
+  let timeLeft = 600; // 10 minutes in seconds
+  timerEl.textContent = "10:00";
+
+  createTimerInterval = setInterval(() => {
+    timeLeft--;
+    if (timeLeft <= 0) {
+      clearInterval(createTimerInterval);
+      createTimerInterval = null;
+      timerEl.textContent = "Expired";
+      if (startBtn) {
+        startBtn.disabled = true;
+        startBtn.innerHTML = `Expired <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>`;
+      }
+    } else {
+      const mins = Math.floor(timeLeft / 60);
+      const secs = timeLeft % 60;
+      timerEl.textContent = `${mins}:${String(secs).padStart(2, "0")}`;
+    }
+  }, 1000);
+}
+
 // ─── Screen routing ───────────────────────────────────────────
 function setScreen(name) {
+  if (name !== "create") {
+    if (createTimerInterval) {
+      clearInterval(createTimerInterval);
+      createTimerInterval = null;
+    }
+  }
+
   if ((name === "host" || name === "viewer") && !state.joinedRoom) {
     const savedSession = readSavedRoomSession();
     if (!savedSession || savedSession.role !== name) {
@@ -718,6 +760,13 @@ if (socket) {
     } else {
       setScreen("ended");
     }
+  });
+  socket.on("room-expired", () => {
+    hideConnectionOverlay();
+    cleanupRoom();
+    clearRoomSession();
+    setRoomCodeError("The time period for joining this room has expired. Please ask the room owner to recreate the room, or the room was not found.");
+    setScreen("join");
   });
   socket.on("host-reconnecting", () => {
     if (getActiveScreen() === "viewer") {
@@ -1324,6 +1373,7 @@ document.addEventListener("click", async (e) => {
       clearRoomSession();
       syncRoomCode(randomRoomCode());
       setScreen("create");
+      startCreateExpiryTimer();
       break;
 
     case "go-join":

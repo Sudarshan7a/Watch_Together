@@ -2,6 +2,7 @@ import express from "express";
 import http from "http";
 import https from "https";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import { Server } from "socket.io";
 import cors from "cors";
@@ -12,6 +13,55 @@ app.use(cors());
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const clientDir = path.resolve(__dirname, "../client");
+
+// Parse .env if it exists and variables aren't set
+const envPath = path.resolve(__dirname, "../.env");
+if (fs.existsSync(envPath)) {
+  const content = fs.readFileSync(envPath, "utf-8");
+  content.split(/\r?\n/).forEach((line) => {
+    const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+    if (match) {
+      const key = match[1];
+      let val = (match[2] || "").trim();
+      if (val.startsWith('"') && val.endsWith('"')) {
+        val = val.substring(1, val.length - 1);
+      } else if (val.startsWith("'") && val.endsWith("'")) {
+        val = val.substring(1, val.length - 1);
+      }
+      if (!process.env[key]) {
+        process.env[key] = val;
+      }
+    }
+  });
+}
+
+async function runRedisCommand(commandArray) {
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) {
+    console.warn("Upstash Redis environment variables are missing.");
+    return null;
+  }
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(commandArray),
+    });
+    if (!res.ok) {
+      console.error("Upstash Redis error response:", res.statusText);
+      return null;
+    }
+    const data = await res.json();
+    return data.result;
+  } catch (err) {
+    console.error("Upstash Redis connection failed:", err.message);
+    return null;
+  }
+}
 
 app.use(express.static(clientDir));
 
@@ -107,6 +157,9 @@ function endRoom(roomCode, reason = "ended") {
 
   delete rooms[roomCode];
   console.log(`room ${roomCode} ${reason}`);
+
+  // Clean up Redis
+  runRedisCommand(["DEL", `watchtogether:room:${roomCode}`]).catch(() => {});
 }
 
 function removeSocketFromRoom(socket, intentional = false) {
@@ -145,7 +198,7 @@ io.on("connection", (socket) => {
   socket.displayName = socket.handshake.auth?.name?.trim() || "";
   console.log(`${getSocketLabel(socket, socket.id)} connected: ${socket.id}`);
 
-  socket.on("join-room", ({ roomCode, role, memberId, name }) => {
+  socket.on("join-room", async ({ roomCode, role, memberId, name }) => {
     roomCode = normalizeRoomCode(roomCode);
 
     if (!roomCode || (role !== "host" && role !== "viewer") || !memberId) {
@@ -159,8 +212,14 @@ io.on("connection", (socket) => {
     }
 
     if (!rooms[roomCode] && role === "viewer") {
-      socket.emit("room-unavailable");
-      return;
+      const redisRoom = await runRedisCommand(["GET", `watchtogether:room:${roomCode}`]);
+      if (redisRoom) {
+        rooms[roomCode] = createRoom();
+        console.log(`Recreated room ${roomCode} in memory from Upstash Redis`);
+      } else {
+        socket.emit("room-expired");
+        return;
+      }
     }
 
     if (!rooms[roomCode]) {
@@ -174,6 +233,17 @@ io.on("connection", (socket) => {
     if (role === "host" && hostMember && hostMember.memberId !== memberId) {
       socket.emit("room-full");
       return;
+    }
+
+    if (role === "host") {
+      await runRedisCommand([
+        "SET",
+        `watchtogether:room:${roomCode}`,
+        JSON.stringify({ roomCode, hostMemberId: memberId, createdAt: Date.now() }),
+        "EX",
+        "600" // 10 minutes expiry
+      ]);
+      console.log(`Room ${roomCode} active state stored in Upstash Redis (10m TTL)`);
     }
 
     if (!existingMember && room.members.size >= 6) {
