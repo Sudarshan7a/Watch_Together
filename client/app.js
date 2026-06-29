@@ -492,6 +492,51 @@ function randomRoomCode() {
   return `${adj}${noun}-${num}`;
 }
 
+// ─── Toast Notifications ──────────────────────────────────────
+function showToast(message, type = "info") {
+  let container = document.getElementById("toastContainer");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "toastContainer";
+    container.className = "toast-container";
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${type}`;
+  const icon = type === "error" ? "❌" : "ℹ️";
+  
+  toast.innerHTML = `
+    <span class="toast-icon">${icon}</span>
+    <span class="toast-message">${message}</span>
+  `;
+
+  container.appendChild(toast);
+
+  // Auto-dismiss after 4 seconds
+  setTimeout(() => {
+    toast.style.opacity = "0";
+    toast.style.transform = "translateY(-8px) scale(0.98)";
+    setTimeout(() => {
+      toast.remove();
+      if (container.children.length === 0) {
+        container.remove();
+      }
+    }, 300);
+  }, 4000);
+}
+
+// ─── Room Creation Cooldown ────────────────────────────────────
+function getRoomCreationCooldown() {
+  const lastCreate = parseInt(window.localStorage?.getItem("watchtogether-last-create-time") || "0", 10);
+  const elapsed = Date.now() - lastCreate;
+  const cooldown = 60000; // 60 seconds cooldown
+  if (elapsed < cooldown) {
+    return Math.ceil((cooldown - elapsed) / 1000);
+  }
+  return 0;
+}
+
 function normalizeCode(value) {
   // Accept WORDWORD-1234 or WORD-1234 style, strip spaces
   return value
@@ -683,6 +728,10 @@ function emitJoinRoom(role) {
 }
 
 function joinCurrentRoom(role) {
+  if (role === "host") {
+    window.localStorage?.setItem("watchtogether-last-create-time", Date.now().toString());
+    window.localStorage?.setItem("watchtogether-last-created-code", state.roomCode);
+  }
   saveRoomSession(role);
   emitJoinRoom(role);
 }
@@ -718,16 +767,31 @@ if (socket) {
     hideConnectionOverlay();
     restoreSavedRoomIfNeeded();
   });
-  socket.on("connect_error", () => {
+  socket.on("connect_error", (err) => {
     state.socketConnected = false;
     delete body.dataset.socketConnected;
-    showWakeOverlay();
+    if (err && err.message && err.message.includes("rate limit")) {
+      showToast(err.message, "error");
+    } else {
+      showWakeOverlay();
+    }
   });
   socket.on("disconnect", () => {
     state.socketConnected = false;
     delete body.dataset.socketConnected;
     if (state.joinedRoom) showConnectionOverlay();
   });
+  socket.on("rate-limited", ({ message }) => {
+    hideConnectionOverlay();
+    cleanupRoom();
+    const activeRoute = getActiveScreen();
+    if (activeRoute === "host" || activeRoute === "viewer") {
+      clearRoomSession();
+      setScreen(activeRoute === "host" ? "landing" : "join");
+    }
+    showToast(message, "error");
+  });
+
   socket.on("room-full", () => {
     cleanupRoom();
     clearRoomSession();
@@ -1368,13 +1432,19 @@ document.addEventListener("click", async (e) => {
   const action = button.dataset.action;
 
   switch (action) {
-    case "open-create":
+    case "open-create": {
       if (!ensureDisplayName("open-create")) return;
+      const cooldownSecs = getRoomCreationCooldown();
+      if (cooldownSecs > 0) {
+        showToast(`Please wait ${cooldownSecs}s before creating a new room.`, "error");
+        return;
+      }
       clearRoomSession();
       syncRoomCode(randomRoomCode());
       setScreen("create");
       startCreateExpiryTimer();
       break;
+    }
 
     case "go-join":
       setRoomCodeError();
@@ -1382,11 +1452,20 @@ document.addEventListener("click", async (e) => {
       roomCodeInput?.focus();
       break;
 
-    case "go-host":
+    case "go-host": {
       if (!ensureDisplayName("go-host")) return;
+      const lastCode = window.localStorage?.getItem("watchtogether-last-created-code") || "";
+      if (state.roomCode !== lastCode) {
+        const cooldownSecs = getRoomCreationCooldown();
+        if (cooldownSecs > 0) {
+          showToast(`Please wait ${cooldownSecs}s before hosting a new room.`, "error");
+          return;
+        }
+      }
       joinCurrentRoom("host");
       setScreen("host");
       break;
+    }
 
     case "join-room": {
       if (!ensureDisplayName("join-room")) return;

@@ -8,7 +8,77 @@ import { Server } from "socket.io";
 import cors from "cors";
 
 const app = express();
+app.set("trust proxy", true);
 app.use(cors());
+
+// ─── Rate Limiter Engine ───────────────────────────────────────
+const rateLimitStores = {
+  http: new Map(),
+  connection: new Map(),
+  hostCreate: new Map(),
+  roomJoin: new Map()
+};
+
+function checkRateLimit(ip, limitType, windowMs, maxLimit) {
+  const now = Date.now();
+  const store = rateLimitStores[limitType];
+  if (!store) return { limited: false, retryAfter: 0 };
+
+  if (!store.has(ip)) {
+    store.set(ip, []);
+  }
+
+  const timestamps = store.get(ip);
+  const active = timestamps.filter(t => now - t < windowMs);
+
+  if (active.length >= maxLimit) {
+    const oldest = active[0];
+    const retryAfter = Math.ceil((oldest + windowMs - now) / 1000);
+    return { limited: true, retryAfter };
+  }
+
+  active.push(now);
+  store.set(ip, active);
+  return { limited: false, retryAfter: 0 };
+}
+
+// Clean up expired rate limit entries every 5 minutes to prevent memory leaks
+setInterval(() => {
+  const now = Date.now();
+  for (const store of Object.values(rateLimitStores)) {
+    for (const [ip, timestamps] of store.entries()) {
+      const active = timestamps.filter(t => now - t < 300000);
+      if (active.length === 0) {
+        store.delete(ip);
+      } else {
+        store.set(ip, active);
+      }
+    }
+  }
+}, 300000);
+
+const HTTP_WINDOW_MS = 60000;
+const HTTP_MAX_LIMIT = 50; // 50 requests per minute
+
+function httpRateLimiter(req, res, next) {
+  const ip = req.ip || req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+
+  // Skip rate limiting for localhost/loopback
+  if (ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1") {
+    return next();
+  }
+
+  const status = checkRateLimit(ip, "http", HTTP_WINDOW_MS, HTTP_MAX_LIMIT);
+  if (status.limited) {
+    res.setHeader("Retry-After", status.retryAfter);
+    return res.status(429).json({
+      error: `Too many requests. Please wait ${status.retryAfter} second(s) before trying again.`
+    });
+  }
+  next();
+}
+
+app.use(httpRateLimiter);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -72,6 +142,24 @@ const io = new Server(server, {
     origin: "*",
     methods: ["GET", "POST"],
   },
+});
+
+const CONN_WINDOW_MS = 60000;
+const CONN_MAX_LIMIT = 7; // Max 7 socket connections per minute
+
+io.use((socket, next) => {
+  const ip = socket.handshake.headers["x-forwarded-for"] || socket.handshake.address;
+
+  // Skip rate limiting for localhost/loopback
+  if (ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1") {
+    return next();
+  }
+
+  const status = checkRateLimit(ip, "connection", CONN_WINDOW_MS, CONN_MAX_LIMIT);
+  if (status.limited) {
+    return next(new Error(`Connection rate limit exceeded. Please wait ${status.retryAfter} second(s) before trying again.`));
+  }
+  next();
 });
 
 app.get("/health", (req, res) => {
@@ -200,6 +288,29 @@ io.on("connection", (socket) => {
 
   socket.on("join-room", async ({ roomCode, role, memberId, name }) => {
     roomCode = normalizeRoomCode(roomCode);
+
+    const ip = socket.handshake.headers["x-forwarded-for"] || socket.handshake.address;
+    const isLocal = (ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1");
+
+    if (!isLocal) {
+      if (role === "host") {
+        const status = checkRateLimit(ip, "hostCreate", 60000, 1);
+        if (status.limited) {
+          socket.emit("rate-limited", {
+            message: `You are creating rooms too fast. Please wait ${status.retryAfter} second(s) before trying again.`
+          });
+          return;
+        }
+      } else if (role === "viewer") {
+        const status = checkRateLimit(ip, "roomJoin", 60000, 5);
+        if (status.limited) {
+          socket.emit("rate-limited", {
+            message: `You are joining rooms too fast. Please wait ${status.retryAfter} second(s) before trying again.`
+          });
+          return;
+        }
+      }
+    }
 
     if (!roomCode || (role !== "host" && role !== "viewer") || !memberId) {
       socket.emit("room-unavailable");
