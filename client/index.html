@@ -158,6 +158,10 @@
             <p class="page-copy">
               Join a private room with a code from the host.
             </p>
+            <div class="link-join-banner hidden" id="linkJoinBanner">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              Room code filled from link
+            </div>
             <div class="code-field">
               <label class="sr-only" for="roomCodeInput">Room code</label>
               <input
@@ -211,6 +215,17 @@
                     <path d="M9 9h10v10H9zM5 5h10v10H5z" />
                   </svg>
                   <span class="copy-label">Copy code</span>
+                </button>
+                <button
+                  class="ghost-button"
+                  type="button"
+                  data-action="copy-link"
+                  id="copyLinkBtn"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                  </svg>
+                  <span class="copy-link-label">Copy link</span>
                 </button>
                 <button
                   class="ghost-button share-button"
@@ -755,6 +770,18 @@
         </div>
       </article>
     </template>
+
+    <!-- ── Server wake-up overlay (shown while Render cold-starts) ── -->
+    <div class="wake-overlay hidden" id="wakeOverlay" aria-live="polite" role="status">
+      <div class="wake-card">
+        <div class="wake-spinner" aria-hidden="true"></div>
+        <h2>Waking up the server…</h2>
+        <p id="wakeOverlayCopy">The server is starting up. This takes up to 60 seconds on the free tier — no need to refresh.</p>
+        <div class="wake-progress">
+          <div class="wake-progress-bar" id="wakeProgressBar"></div>
+        </div>
+      </div>
+    </div>
 
     <script>
       (function () {

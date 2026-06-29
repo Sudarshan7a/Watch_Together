@@ -28,6 +28,11 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
+// Serve index.html for join links: /?room=ROOMCODE
+app.get("/join", (req, res) => {
+  res.sendFile(path.join(clientDir, "index.html"));
+});
+
 app.get("/", (req, res) => {
   res.sendFile(path.join(clientDir, "index.html"));
 });

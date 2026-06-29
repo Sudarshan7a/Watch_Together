@@ -153,6 +153,94 @@ function clearRoomSession() {
   state.joinedRoom = false;
 }
 
+// ─── Wake-up overlay (Render cold start) ─────────────────────
+const wakeOverlay = document.getElementById("wakeOverlay");
+const wakeProgressBar = document.getElementById("wakeProgressBar");
+let wakeTimer = null;
+let wakeProgressInterval = null;
+
+function showWakeOverlay() {
+  if (!wakeOverlay) return;
+  wakeOverlay.classList.remove("hidden");
+
+  // Animate progress bar over 60s — visual cue that we're waiting
+  let elapsed = 0;
+  const TOTAL_MS = 60000;
+  if (wakeProgressInterval) clearInterval(wakeProgressInterval);
+  if (wakeProgressBar) wakeProgressBar.style.width = "0%";
+
+  wakeProgressInterval = setInterval(() => {
+    elapsed += 500;
+    const pct = Math.min((elapsed / TOTAL_MS) * 100, 95); // cap at 95% until actually connected
+    if (wakeProgressBar) wakeProgressBar.style.width = `${pct}%`;
+    if (elapsed >= TOTAL_MS) clearInterval(wakeProgressInterval);
+  }, 500);
+}
+
+function hideWakeOverlay() {
+  if (!wakeOverlay) return;
+  if (wakeProgressBar) wakeProgressBar.style.width = "100%";
+  clearInterval(wakeProgressInterval);
+  // Brief delay so the 100% state is visible before hiding
+  setTimeout(() => {
+    wakeOverlay.classList.add("hidden");
+    if (wakeProgressBar) wakeProgressBar.style.width = "0%";
+  }, 400);
+}
+
+// Pre-ping the server via HTTP before the socket connects.
+// If /health returns 200 the server is already up — no overlay needed.
+// If it fails or times out, show the wake overlay immediately so the
+// user knows what's happening instead of seeing a blank spinner.
+function pingServerHealth() {
+  if (
+    window.location.protocol === "file:" ||
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1"
+  ) {
+    return; // skip on local dev
+  }
+
+  const healthUrl = `${socketUrl.replace(/\/$/, "")}/health`;
+  let isChecking = true;
+
+  function doPing() {
+    if (!isChecking || state.socketConnected) return;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      controller.abort();
+      showWakeOverlay();
+      scheduleNext();
+    }, 4000); // 4 seconds timeout for each ping
+
+    fetch(healthUrl, { signal: controller.signal })
+      .then((res) => {
+        clearTimeout(timeout);
+        if (res.ok) {
+          isChecking = false;
+          hideWakeOverlay();
+        } else {
+          showWakeOverlay();
+          scheduleNext();
+        }
+      })
+      .catch(() => {
+        clearTimeout(timeout);
+        showWakeOverlay();
+        scheduleNext();
+      });
+  }
+
+  function scheduleNext() {
+    if (!state.socketConnected && isChecking) {
+      setTimeout(doPing, 4000); // retry every 4 seconds
+    }
+  }
+
+  doPing();
+}
+
 function showConnectionOverlay(
   title = "Reconnecting",
   copy = "Keeping your room open — this can take up to 60 s if the server is waking up.",
@@ -488,6 +576,11 @@ function saveNameAndContinue() {
 }
 
 // ─── Room code sync ───────────────────────────────────────────
+function getJoinLink(code) {
+  const base = window.location.origin + window.location.pathname.replace(/\/$/, "");
+  return `${base}/?room=${encodeURIComponent(code || state.roomCode)}`;
+}
+
 function syncRoomCode(code) {
   state.roomCode = code;
   if (generatedRoomCode) generatedRoomCode.textContent = code;
@@ -579,16 +672,14 @@ if (socket) {
   socket.on("connect", () => {
     state.socketConnected = true;
     body.dataset.socketConnected = "true";
+    hideWakeOverlay();
     hideConnectionOverlay();
     restoreSavedRoomIfNeeded();
   });
   socket.on("connect_error", () => {
     state.socketConnected = false;
     delete body.dataset.socketConnected;
-    showConnectionOverlay(
-      "Waking up server…",
-      "The server is starting up — this takes up to 60 s on the free tier. Hang tight, no need to refresh.",
-    );
+    showWakeOverlay();
   });
   socket.on("disconnect", () => {
     state.socketConnected = false;
@@ -609,8 +700,24 @@ if (socket) {
   socket.on("room-unavailable", () => {
     hideConnectionOverlay();
     cleanupRoom();
+    const wasJoined = state.joinedRoom;
+    const wasViewer = state.role === "viewer";
+    const wasHost = state.role === "host";
     clearRoomSession();
-    setScreen("ended");
+    // If the user was in a room, show the join screen so they can re-enter the code
+    // (the server may have restarted and wiped the room state)
+    if (wasJoined || getActiveScreen() === "viewer" || getActiveScreen() === "host") {
+      if (wasViewer) {
+        setRoomCodeError("Server restarted. Please rejoin.");
+      } else if (wasHost) {
+        setRoomCodeError("Server restarted. Please recreate your room.");
+      } else {
+        setRoomCodeError("This room is no longer available. The host may need to create a new one.");
+      }
+      setScreen("join");
+    } else {
+      setScreen("ended");
+    }
   });
   socket.on("host-reconnecting", () => {
     if (getActiveScreen() === "viewer") {
@@ -1261,11 +1368,24 @@ document.addEventListener("click", async (e) => {
       break;
     }
 
+    case "copy-link": {
+      const link = getJoinLink();
+      await navigator.clipboard?.writeText(link);
+      const linkBtn = document.getElementById("copyLinkBtn");
+      const linkLbl = linkBtn?.querySelector(".copy-link-label");
+      if (linkLbl) {
+        linkLbl.textContent = "Copied!";
+        setTimeout(() => { linkLbl.textContent = "Copy link"; }, 1400);
+      }
+      break;
+    }
+
     case "share-room": {
+      const joinLink = getJoinLink();
       const shareData = {
         title: "WatchTogether",
         text: `Join my private WatchTogether room! Code: ${state.roomCode}`,
-        url: window.location.origin,
+        url: joinLink,
       };
       if (
         navigator.share &&
@@ -1280,12 +1400,11 @@ document.addEventListener("click", async (e) => {
           }
         }
       } else {
-        // Fallback: Copy share message to clipboard
-        const fullMessage = `${shareData.text} — ${shareData.url}`;
-        await navigator.clipboard?.writeText(fullMessage);
+        // Fallback: copy the full join link
+        await navigator.clipboard?.writeText(joinLink);
         const shareBtn = document.getElementById("shareRoomBtn");
         const origContent = shareBtn.innerHTML;
-        shareBtn.textContent = "Copied share text!";
+        shareBtn.textContent = "Copied link!";
         setTimeout(() => {
           shareBtn.innerHTML = origContent;
         }, 1400);
@@ -1423,17 +1542,44 @@ if (savedName) {
 
 state.memberId = getMemberId();
 
+// ── URL join link: /?room=ROOMCODE or /join?room=ROOMCODE ──
+// When someone opens a shared link, pre-fill the room code and
+// show the join screen so they just need to enter their name and click Join.
+const urlParams = new URLSearchParams(window.location.search);
+const urlRoomCode = normalizeCode(urlParams.get("room") || "");
+
 const savedRoomSession = readSavedRoomSession();
-if (savedRoomSession) {
+if (urlRoomCode) {
+  // If we got a room code from the URL, clear any saved session for a different room
+  if (savedRoomSession && savedRoomSession.roomCode !== urlRoomCode) {
+    clearRoomSession();
+  }
+  syncRoomCode(urlRoomCode);
+  if (roomCodeInput) roomCodeInput.value = urlRoomCode;
+  
+  // Clean the URL so refreshing doesn't re-trigger this
+  const cleanUrl = window.location.pathname;
+  window.history.replaceState({}, "", cleanUrl);
+} else if (savedRoomSession) {
   state.memberId = savedRoomSession.memberId;
   syncRoomCode(savedRoomSession.roomCode);
 } else {
   syncRoomCode(randomRoomCode());
 }
 
+// Kick off the health pre-ping so we show the wake overlay early if needed
+pingServerHealth();
+
 syncMicButtonUI();
 if (qualityLabel) qualityLabel.textContent = `Quality: ${state.quality.label}`;
 syncFullscreenButtons();
-if (!restoreSavedRoomIfNeeded()) {
+
+if (urlRoomCode) {
+  // Auto-join
+  if (ensureDisplayName("join-room")) {
+    joinCurrentRoom("viewer");
+    setScreen("viewer");
+  }
+} else if (!restoreSavedRoomIfNeeded()) {
   setScreen(getActiveScreen());
 }
